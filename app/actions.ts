@@ -68,7 +68,9 @@ export async function saveMember(form: FormData) {
   const email = normalizedEmail(value(form, "email"));
   const displayName = value(form, "display_name");
   const requestedRole = value(form, "role") as AppRole;
-  const isLeader = requestedRole === "leader" || form.get("is_leader") === "on";
+  // External consultants and observers cannot count toward the client's
+  // high-level-team quorum even if a stale form submits is_leader=on.
+  const isLeader = requestedRole === "leader" || (requestedRole === "admin" && form.get("is_leader") === "on");
   const isDirector = form.get("is_director") === "on";
   const status = value(form, "status") === "inactive" ? "inactive" : "active";
   if (!validEmail(email) || displayName.length < 2 || displayName.length > 100 || !canAssignRole(actor.role, requestedRole) || (isDirector && (!isLeader || actor.role !== "owner"))) {
@@ -86,7 +88,7 @@ export async function saveMember(form: FormData) {
   const sameEmail = await db.prepare("SELECT id FROM members WHERE organization_id = ? AND email = ? AND id != ?")
     .bind(organizationId, email, memberId || "").first();
   if (sameEmail) redirect("/equipo?error=duplicate");
-  const leaderCount = await db.prepare("SELECT COUNT(*) AS total FROM members WHERE organization_id = ? AND is_leader = 1 AND status = 'active' AND id != ?")
+  const leaderCount = await db.prepare("SELECT COUNT(*) AS total FROM members WHERE organization_id = ? AND is_leader = 1 AND role IN ('owner', 'admin', 'leader') AND status = 'active' AND id != ?")
     .bind(organizationId, memberId || "").first<{ total: number }>();
   if (isLeader && status === "active" && (leaderCount?.total ?? 0) >= MAX_HIGH_LEVEL_LEADERS) redirect("/equipo?error=limit");
   if (isDirector && status === "active") {
