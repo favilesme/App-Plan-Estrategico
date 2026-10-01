@@ -92,3 +92,64 @@ export const auditEvents = sqliteTable("audit_events", {
   payloadJson: text("payload_json").notNull().default("{}"),
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (table) => [index("idx_audit_org_created").on(table.organizationId, table.createdAt)]);
+
+// Sprint 2 keeps workshop answers, approved statements and diagnostic inputs
+// distinct. Edits retain their previous value in audit_events.
+export const projectProfiles = sqliteTable("project_profiles", {
+  id: text("id").primaryKey(),
+  cycleId: text("cycle_id").notNull().references(() => strategyCycles.id),
+  scope: text("scope").notNull().default(""),
+  calendarNotes: text("calendar_notes").notNull().default(""),
+  primarySources: text("primary_sources").notNull().default(""),
+  secondarySources: text("secondary_sources").notNull().default(""),
+  updatedByUserId: text("updated_by_user_id").notNull(),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [uniqueIndex("ux_project_profiles_cycle").on(table.cycleId)]);
+
+export const philosophyAnswers = sqliteTable("philosophy_answers", {
+  id: text("id").primaryKey(),
+  cycleId: text("cycle_id").notNull().references(() => strategyCycles.id),
+  questionKey: text("question_key").notNull(),
+  answer: text("answer").notNull(),
+  version: integer("version").notNull().default(1),
+  updatedByUserId: text("updated_by_user_id").notNull(),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [uniqueIndex("ux_philosophy_answer_question").on(table.cycleId, table.questionKey)]);
+
+export const philosophyStatements = sqliteTable("philosophy_statements", {
+  id: text("id").primaryKey(),
+  cycleId: text("cycle_id").notNull().references(() => strategyCycles.id),
+  kind: text("kind").notNull(),
+  statement: text("statement").notNull(),
+  version: integer("version").notNull().default(1),
+  updatedByUserId: text("updated_by_user_id").notNull(),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [uniqueIndex("ux_philosophy_statement_kind").on(table.cycleId, table.kind)]);
+
+export const valueBehaviors = sqliteTable("value_behaviors", {
+  id: text("id").primaryKey(),
+  cycleId: text("cycle_id").notNull().references(() => strategyCycles.id),
+  valueName: text("value_name").notNull(),
+  behavior: text("behavior").notNull(),
+  missionLink: text("mission_link"),
+  visionLink: text("vision_link"),
+  version: integer("version").notNull().default(1),
+  updatedByUserId: text("updated_by_user_id").notNull(),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [index("idx_value_behaviors_cycle").on(table.cycleId)]);
+
+export const diagnosticInputs = sqliteTable("diagnostic_inputs", {
+  id: text("id").primaryKey(),
+  cycleId: text("cycle_id").notNull().references(() => strategyCycles.id),
+  area: text("area").notNull(),
+  classification: text("classification").notNull(),
+  statement: text("statement").notNull(),
+  sourceType: text("source_type").notNull(),
+  sourceDetail: text("source_detail").notNull(),
+  period: text("period").notNull(),
+  version: integer("version").notNull().default(1),
+  createdByUserId: text("created_by_user_id").notNull(),
+  updatedByUserId: text("updated_by_user_id").notNull(),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [index("idx_diagnostic_inputs_cycle_area").on(table.cycleId, table.area)]);

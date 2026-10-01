@@ -44,7 +44,7 @@ export default async function Home() {
       </section>
       <section className="rounded-2xl border border-[#c9e2de] bg-[#eaf6f3] p-6" aria-labelledby="next-title">
         <p className="text-[13px] font-semibold uppercase tracking-[0.1em] text-[#267b75]">Siguiente paso</p><h2 id="next-title" className="mt-2 text-xl font-semibold text-[#143b47]">{organization ? "Completar perfil y equipo" : "Crear el primer ciclo"}</h2>
-        <p className="mt-2 text-[14px] leading-6 text-[#4a6872]">{organization ? "Confirma quiénes liderarán el proceso. El diagnóstico se abrirá en la siguiente fase." : "Define la organización y el periodo de planificación. Después podrás asignar al Equipo de Alto Nivel."}</p>
+        <p className="mt-2 text-[14px] leading-6 text-[#4a6872]">{organization ? "Completa el encuadre y la filosofía empresarial; después registra antecedentes del diagnóstico con sus fuentes." : "Define la organización y el periodo de planificación. Después podrás asignar al Equipo de Alto Nivel."}</p>
       </section>
     </div>
 

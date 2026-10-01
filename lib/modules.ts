@@ -18,5 +18,7 @@ export const modules = [
 export type ModuleSlug = (typeof modules)[number]["slug"];
 
 export function moduleHref(slug: ModuleSlug) {
-  return slug === "organizacion" ? "/organizacion" : `/modulos/${slug}`;
+  if (slug === "organizacion") return "/organizacion";
+  if (slug === "diagnostico") return "/diagnostico";
+  return `/modulos/${slug}`;
 }

@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 
 export default async function ModulePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const selectedModule = modules.find((item) => item.slug === slug && item.slug !== "organizacion");
+  const selectedModule = modules.find((item) => item.slug === slug && item.slug !== "organizacion" && item.slug !== "diagnostico");
   if (!selectedModule) notFound();
   const actor = await getActor();
   if (!actor) redirect(chatGPTSignInPath(`/modulos/${slug}`));
