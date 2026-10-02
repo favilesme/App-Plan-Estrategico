@@ -7,10 +7,11 @@ import { getActor } from "@/lib/authz";
 import { getCurrentCycle } from "@/lib/workspace";
 import {
   diagnosticSubject, getDiagnosticInputs, getPhilosophyAnswers, getPhilosophyStatements,
-  getProjectProfile, getValueBehaviors, isHighLevelMember, latestApproval,
-  philosophyQuestions, statementSubject, valuesSubject,
+  getProjectProfile, getValueBehaviors, getValueReviewRecords, isHighLevelMember, latestApproval,
+  philosophyQuestions, statementSubject,
 } from "@/lib/sprint2";
 import { METHODOLOGY_VERSION } from "@/lib/methodology";
+import { resolveValueReview, valueReviewSubject } from "@/lib/value-review";
 
 const clean = (form: FormData, key: string) => String(form.get(key) ?? "").trim();
 const allowedAreas = ["operativa", "comercial", "financiera"];
@@ -31,14 +32,15 @@ function auditStatement(db: D1Database, organizationId: string, cycleId: string,
 }
 
 async function updateProfileProgress(cycleId: string, actorUserId: string) {
-  const [profile, answers, statements, values] = await Promise.all([
-    getProjectProfile(cycleId), getPhilosophyAnswers(cycleId), getPhilosophyStatements(cycleId), getValueBehaviors(cycleId),
+  const [profile, answers, statements, values, valueReviews] = await Promise.all([
+    getProjectProfile(cycleId), getPhilosophyAnswers(cycleId), getPhilosophyStatements(cycleId), getValueBehaviors(cycleId), getValueReviewRecords(cycleId),
   ]);
   let approvedStatements = 0;
   for (const item of statements) {
     if ((await latestApproval(cycleId, `philosophy.${item.kind}`, statementSubject(item)))?.status === "approved") approvedStatements++;
   }
-  const valuesApproved = values.length > 0 && statements.length === 2 && (await latestApproval(cycleId, "philosophy.values", valuesSubject(values, statements)))?.status === "approved";
+  const valuesApproved = values.length > 0 && statements.length === 2 && approvedStatements === 2 &&
+    values.every((item) => resolveValueReview(item, statements, valueReviews)?.record.status === "approved");
   const profileComplete = Boolean(profile?.scope && profile.calendar_notes && profile.primary_sources && profile.secondary_sources);
   const answered = philosophyQuestions.filter((question) => answers.some((item) => item.question_key === question.key && item.answer)).length;
   const done = answered + approvedStatements + Number(valuesApproved) + Number(profileComplete);
@@ -93,6 +95,7 @@ export async function savePhilosophyAnswer(form: FormData) {
   const answer = clean(form, "answer");
   if (questionIndex < 0 || answer.length < 3 || answer.length > 2000) redirect(`/organizacion/filosofia?q=${encodeURIComponent(key)}&error=invalid`);
   const prior = await db.prepare("SELECT id, answer, version FROM philosophy_answers WHERE cycle_id = ? AND question_key = ?").bind(cycle.id, key).first<{ id: string; answer: string; version: number }>();
+  if (Number(clean(form, "expected_version")) !== (prior?.version ?? 0)) redirect(`/organizacion/filosofia?q=${encodeURIComponent(key)}&error=stale`);
   const id = prior?.id ?? crypto.randomUUID();
   const writes = [db.prepare("INSERT INTO philosophy_answers (id, cycle_id, question_key, answer, updated_by_user_id) VALUES (?, ?, ?, ?, ?) ON CONFLICT(cycle_id, question_key) DO UPDATE SET answer = excluded.answer, version = philosophy_answers.version + 1, updated_by_user_id = excluded.updated_by_user_id, updated_at = CURRENT_TIMESTAMP")
     .bind(id, cycle.id, key, answer, actor.user.userId)];
@@ -151,6 +154,10 @@ export async function saveValueBehavior(form: FormData) {
   if (name.length < 2 || name.length > 120 || behavior.length < 10 || behavior.length > 1500 || (!mission && !vision) || mission.length > 500 || vision.length > 500) redirect("/organizacion/filosofia?error=invalid");
   const prior = await db.prepare("SELECT * FROM value_behaviors WHERE id = ? AND cycle_id = ?").bind(id, cycle.id).first();
   if (clean(form, "id") && !prior) redirect("/organizacion/filosofia?error=missing");
+  if (Number(clean(form, "expected_version")) !== Number(prior?.version ?? 0)) redirect(`/organizacion/filosofia?editValue=${encodeURIComponent(id)}&error=stale#valores`);
+  if (prior && prior.value_name === name && prior.behavior === behavior && (prior.mission_link ?? "") === mission && (prior.vision_link ?? "") === vision) {
+    redirect(`/organizacion/filosofia?editValue=${encodeURIComponent(id)}&saved=1#valores`);
+  }
   const change = prior
     ? db.prepare("UPDATE value_behaviors SET value_name = ?, behavior = ?, mission_link = ?, vision_link = ?, version = version + 1, updated_by_user_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND cycle_id = ?")
       .bind(name, behavior, mission || null, vision || null, actor.user.userId, id, cycle.id)
@@ -160,19 +167,21 @@ export async function saveValueBehavior(form: FormData) {
   await updateProfileProgress(cycle.id, actor.user.userId); refresh(); redirect("/organizacion/filosofia?saved=1#valores");
 }
 
-export async function reviewValues(form: FormData) {
+export async function reviewValue(form: FormData) {
   const { actor, cycle, db } = await context("/organizacion/filosofia");
   if (actor.role !== "consultant") redirect("/organizacion/filosofia?error=permission");
-  const items = await getValueBehaviors(cycle.id);
+  const id = clean(form, "value_id"), expectedVersion = Number(clean(form, "expected_version"));
+  const item = (await getValueBehaviors(cycle.id)).find((row) => row.id === id);
   const statements = await getPhilosophyStatements(cycle.id);
   if (statements.length !== 2 || !(await Promise.all(statements.map((item) => latestApproval(cycle.id, `philosophy.${item.kind}`, statementSubject(item))))).every((item) => item?.status === "approved")) redirect("/organizacion/filosofia?error=statements");
   const rationale = clean(form, "rationale"), decision = clean(form, "decision");
-  if (!items.length || items.some((item) => !item.mission_link && !item.vision_link) || !["approved", "changes_requested"].includes(decision) || rationale.length < 10 || rationale.length > 1500) redirect("/organizacion/filosofia?error=invalid");
-  const subject = valuesSubject(items, statements);
+  if (!item || !item.mission_link && !item.vision_link || !["approved", "changes_requested"].includes(decision) || rationale.length < 10 || rationale.length > 1500) redirect("/organizacion/filosofia?error=invalid#valores");
+  if (item.version !== expectedVersion) redirect("/organizacion/filosofia?error=stale#valores");
+  const subject = valueReviewSubject(item, statements);
   await db.batch([
-    db.prepare("INSERT INTO approvals (id, cycle_id, gate_key, subject_id, status, reviewer_user_id, rationale, source_ids_json, methodology_version) VALUES (?, ?, 'philosophy.values', ?, ?, ?, ?, ?, ?)")
-      .bind(crypto.randomUUID(), cycle.id, subject, decision, actor.user.userId, rationale, JSON.stringify(items.map((item) => `${item.id}:v${item.version}`)), METHODOLOGY_VERSION),
-    auditStatement(db, actor.organizationId!, cycle.id, actor, "philosophy.values_reviewed", "value_behaviors", subject, { decision, rationale }),
+    db.prepare("INSERT INTO approvals (id, cycle_id, gate_key, subject_id, status, reviewer_user_id, rationale, source_ids_json, methodology_version) VALUES (?, ?, 'philosophy.value', ?, ?, ?, ?, ?, ?)")
+      .bind(crypto.randomUUID(), cycle.id, subject, decision, actor.user.userId, rationale, JSON.stringify(subject.split("|")), METHODOLOGY_VERSION),
+    auditStatement(db, actor.organizationId!, cycle.id, actor, "philosophy.value_reviewed", "value_behavior", item.id, { version: item.version, subject, decision, rationale }),
   ]);
   await updateProfileProgress(cycle.id, actor.user.userId); refresh(); redirect("/organizacion/filosofia?reviewed=1#valores");
 }

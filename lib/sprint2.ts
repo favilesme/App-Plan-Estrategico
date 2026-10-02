@@ -1,4 +1,5 @@
 import { getD1 } from "@/db";
+import type { ValueReviewRecord } from "@/lib/value-review";
 
 export const philosophyQuestions = [
   { key: "mission_who", group: "mission", question: "¿Quiénes somos?", why: "Identifica la razón de ser actual de la empresa." },
@@ -36,6 +37,11 @@ export async function getPhilosophyStatements(cycleId: string) {
 export async function getValueBehaviors(cycleId: string) {
   const result = await getD1().prepare("SELECT id, value_name, behavior, mission_link, vision_link, version, updated_by_user_id, updated_at FROM value_behaviors WHERE cycle_id = ? ORDER BY updated_at, id")
     .bind(cycleId).all<ValueBehavior>();
+  return result.results ?? [];
+}
+export async function getValueReviewRecords(cycleId: string) {
+  const result = await getD1().prepare("SELECT id, gate_key, subject_id, status, rationale, reviewer_user_id, source_ids_json, created_at FROM approvals WHERE cycle_id = ? AND gate_key IN ('philosophy.value', 'philosophy.values') ORDER BY rowid DESC")
+    .bind(cycleId).all<ValueReviewRecord>();
   return result.results ?? [];
 }
 export async function getDiagnosticInputs(cycleId: string) {
