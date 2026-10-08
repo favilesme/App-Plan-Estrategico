@@ -1,6 +1,8 @@
 # Anima Praxis · Sprint 2 · Perfil empresarial y diagnóstico
 
-**Estado:** implementación piloto. El código y la migración se probaron localmente con datos ficticios. La validación con las cuentas reales del propietario, líderes, observador y consultor corresponde al Site publicado.
+**Estado:** Sprint 2 validado funcionalmente por el propietario en el Site publicado el 8 de octubre de 2026. El código y la migración también se probaron localmente con datos ficticios.
+
+Francisco Avilés confirmó la comprobación con cuentas separadas: un líder realizó nuevas ediciones, el consultor registró observaciones y el observador pudo consultar sin editar. Esta constancia documenta su prueba de aceptación; no implica que se hayan copiado los datos del Site ni que Codex haya iniciado sesión en esas cuentas.
 
 ## Alcance implementado
 
@@ -36,7 +38,7 @@ La migración `drizzle/0001_careful_skaar.sql` añade `project_profiles`, `philo
 | Alta de organización y encuadre ficticios | Guardó y volvió a mostrar los datos |
 | Primera respuesta de filosofía | Avanzó a la siguiente pregunta y pasó de 0/10 a 1/10 |
 | Antecedente operativo ficticio | Guardó fuente, periodo, autor y versión; se mantuvo tras navegar |
-| Acciones no autorizadas de otros roles | Revisadas en código servidor; la prueba completa entre cuentas reales queda pendiente |
+| Acciones no autorizadas de otros roles | Revisadas en código servidor; la comprobación final con cuentas separadas fue confirmada por Francisco el 8 de octubre de 2026 |
 
 ## Verificación con usuarios reales en el Site
 
@@ -46,4 +48,4 @@ La migración `drizzle/0001_careful_skaar.sql` añade `project_profiles`, `philo
 4. El consultor visualizador confirma que puede acceder al Site y registrar una revisión fundamentada después de completar misión, visión y los tres ámbitos de diagnóstico; no puede cambiar los datos de origen como líder.
 5. El equipo edita una respuesta o un antecedente aprobado y comprueba que la aprobación anterior deja de aplicar a la nueva versión.
 
-No se cierra el Sprint 2 con datos reales hasta completar esas pruebas de permisos y revisión.
+La comprobación final descrita arriba cierra la validación funcional del Sprint 2. El detalle de las correcciones E-001 a E-005 permanece en `BITACORA_CORRECCIONES_001_RESULTADOS.md`.

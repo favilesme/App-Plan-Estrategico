@@ -17,6 +17,12 @@ Aplicación privada de planificación estratégica de Anima Praxis. Este reposit
 | `package.json`, `package-lock.json` | Dependencias reproducibles con npm |
 | `SPRINT_*.md` | Alcance, decisiones y pruebas de cada sprint |
 
+## Identidad visual
+
+Los dos logotipos aprobados están en `public/brand/`: la versión rectangular se usa en la navegación y la cuadrada en el inicio y como icono del Site. La interfaz utiliza los valores de la paleta facilitada: Azul Profundo `#192538`, Gris Pizarra `#5A626F`, Dorado Suave `#D6A871` y Dorado Claro `#E6C99F`; el blanco y los tonos crema sirven de fondo. Los colores rojo y verde quedan reservados para estados funcionales.
+
+Los titulares solicitan **Garamond** y el texto **Avenir** mediante CSS. Los archivos de fuente no se adjuntaron y no se incluyen fuentes comerciales en este repositorio. En equipos sin esas familias se muestran alternativas serif y sans-serif; para una apariencia idéntica en todos los dispositivos se necesitan archivos webfont con licencia de distribución.
+
 ## Ejecutar desde una clonación limpia
 
 Requiere **Node.js 22.13 o superior** y npm.

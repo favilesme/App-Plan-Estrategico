@@ -19,38 +19,43 @@
 }
 
 :root {
-  --background: #f4f7f7;
-  --foreground: #102b3f;
+  /* Anima Praxis: cuatro colores de la paleta aprobada y neutros de interfaz. */
+  --brand-deep-blue: #192538;
+  --brand-slate: #5a626f;
+  --brand-soft-gold: #d6a871;
+  --brand-light-gold: #e6c99f;
+  --background: #faf8f4;
+  --foreground: var(--brand-deep-blue);
   --card: #ffffff;
-  --card-foreground: #102b3f;
+  --card-foreground: var(--brand-deep-blue);
   --popover: #ffffff;
-  --popover-foreground: #102b3f;
-  --primary: #0e766f;
+  --popover-foreground: var(--brand-deep-blue);
+  --primary: var(--brand-deep-blue);
   --primary-foreground: #ffffff;
-  --secondary: #e9f4f3;
-  --secondary-foreground: #164e50;
-  --muted: #edf2f3;
-  --muted-foreground: #5d7582;
-  --accent: #dff1ee;
-  --accent-foreground: #115c58;
+  --secondary: #fbf5eb;
+  --secondary-foreground: var(--brand-deep-blue);
+  --muted: #f3f0eb;
+  --muted-foreground: var(--brand-slate);
+  --accent: #f5e8d5;
+  --accent-foreground: var(--brand-deep-blue);
   --destructive: #ba3b3b;
-  --border: #dbe5e7;
-  --input: #cbd9dd;
-  --ring: #15817b;
-  --chart-1: #0e766f;
-  --chart-2: #d1a857;
-  --chart-3: #24526b;
-  --chart-4: #64b7a9;
-  --chart-5: #a7c7cb;
+  --border: #e6dfd6;
+  --input: #d5ccc0;
+  --ring: var(--brand-soft-gold);
+  --chart-1: var(--brand-deep-blue);
+  --chart-2: var(--brand-soft-gold);
+  --chart-3: var(--brand-slate);
+  --chart-4: var(--brand-light-gold);
+  --chart-5: #bbb2a6;
   --radius: 0.75rem;
-  --sidebar: #0d2034;
-  --sidebar-foreground: #e8f1f3;
-  --sidebar-primary: #1b5262;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #173a4e;
+  --sidebar: var(--brand-deep-blue);
+  --sidebar-foreground: #ffffff;
+  --sidebar-primary: var(--brand-soft-gold);
+  --sidebar-primary-foreground: var(--brand-deep-blue);
+  --sidebar-accent: #344052;
   --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: #274052;
-  --sidebar-ring: #86d7cc;
+  --sidebar-border: #48515e;
+  --sidebar-ring: var(--brand-light-gold);
 }
 
 @theme inline {
@@ -89,49 +94,18 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
-  --font-sans: "Avenir Next", "Segoe UI", Arial, sans-serif;
+  --font-sans: Avenir, "Avenir Next", "Segoe UI", Arial, sans-serif;
+  --font-serif: Garamond, "Adobe Garamond Pro", Baskerville, Georgia, serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
     "Liberation Mono", "Courier New", monospace;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0b1b2a;
-    --foreground: #eaf3f4;
-    --card: #122b3b;
-    --card-foreground: #eaf3f4;
-    --popover: #122b3b;
-    --popover-foreground: #eaf3f4;
-    --primary: #83d8cc;
-    --primary-foreground: #0b2632;
-    --secondary: #183b48;
-    --secondary-foreground: #eaf3f4;
-    --muted: #173342;
-    --muted-foreground: #a8c1c9;
-    --accent: #20535c;
-    --accent-foreground: #eaf3f4;
-    --destructive: #ee7d7d;
-    --border: #31505e;
-    --input: #45606c;
-    --ring: #83d8cc;
-    --chart-1: #83d8cc;
-    --chart-2: #d8bb76;
-    --chart-3: #7db1cc;
-    --chart-4: #4fa99c;
-    --chart-5: #9cbcc4;
-    --sidebar: #081827;
-    --sidebar-foreground: #eaf3f4;
-    --sidebar-primary: #1b5262;
-    --sidebar-primary-foreground: #ffffff;
-    --sidebar-accent: #173a4e;
-    --sidebar-accent-foreground: #ffffff;
-    --sidebar-border: #274052;
-    --sidebar-ring: #86d7cc;
-  }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: "Avenir Next", "Segoe UI", Arial, sans-serif;
+  font-family: var(--font-sans);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-serif);
 }
