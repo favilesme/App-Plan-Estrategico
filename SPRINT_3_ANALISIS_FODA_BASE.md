@@ -1,6 +1,6 @@
 # Anima Praxis · Sprint 3 · Análisis estratégico y FODA base
 
-**Estado:** implementación local verificada; publicación y pruebas con cuentas separadas se documentarán al completar el despliegue. Este sprint prepara factores y evidencias. No calcula todavía las matrices FO/DA ni prioridades.
+**Estado:** implementación local verificada y Site publicado. La vista de análisis interno y la puerta de FODA base se comprobaron en el Site con la cuenta propietaria, sin crear datos de producción. Las pruebas de escritura y roles con cuentas separadas siguen pendientes. Este sprint prepara factores y evidencias. No calcula todavía las matrices FO/DA ni prioridades.
 
 ## Alcance
 
@@ -33,6 +33,6 @@ La revisión obligatoria del consultor sobre **prioridades y notas de la MDEP pi
 
 ## QA local y aceptación en producción
 
-Se aplicó la migración `0002` en D1 local y se registraron factores ficticios de tres categorías con evidencias; se comprobó su persistencia y el avance visual. Las pruebas de dominio cubren ejes vacíos, evidencia mínima, límite diez, duplicados, quórum, director y solicitudes de cambios. La compilación, tipos y lint deben aprobarse antes del despliegue.
+Se aplicó la migración `0002` en D1 local y se registraron factores ficticios de tres categorías con evidencias; se comprobó su persistencia y el avance visual. Las seis pruebas automatizadas pasaron, junto con TypeScript, lint y la compilación. En el Site publicado se confirmó el renderizado de análisis interno y FODA base; la lista aún está vacía en producción, por lo que no se ejecutaron votos ni cierres reales.
 
 La aceptación con usuarios reales requiere que un líder cree y edite factores; otros dos líderes, incluido el director, validen; un observador solo lea; el consultor intervenga únicamente si se registra una duda; el director congele y, con motivo, reabra una nueva versión. Se debe confirmar que las validaciones caducan al cambiar un factor y que la instantánea anterior permanece visible. Usar datos ficticios y evitar modificar la estrategia real durante esta prueba.
