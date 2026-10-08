@@ -4,15 +4,19 @@ import { ArrowLeft, LockKeyhole } from "lucide-react";
 import { chatGPTSignInPath } from "@/app/chatgpt-auth";
 import { AccessNotice } from "@/components/access-notice";
 import { AppShell } from "@/components/app-shell";
+import { FodaAnalysisPage } from "@/components/foda-analysis-page";
+import { FodaReviewPage } from "@/components/foda-review-page";
 import { canRead, getActor } from "@/lib/authz";
 import { modules, type ModuleSlug } from "@/lib/modules";
 
 export const dynamic = "force-dynamic";
 
-export default async function ModulePage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function ModulePage({ params, searchParams }: { params: Promise<{ slug: string }>; searchParams: Promise<{ axis?: string; edit?: string; factor?: string; evidence?: string; statusFactor?: string; error?: string; saved?: string; validated?: string; reviewed?: string; frozen?: string; reopened?: string }> }) {
   const { slug } = await params;
   const selectedModule = modules.find((item) => item.slug === slug && item.slug !== "organizacion" && item.slug !== "diagnostico");
   if (!selectedModule) notFound();
+  if (slug === "analisis-interno" || slug === "analisis-externo") return <FodaAnalysisPage side={slug === "analisis-interno" ? "internal" : "external"} searchParams={searchParams} />;
+  if (slug === "foda") return <FodaReviewPage searchParams={searchParams} />;
   const actor = await getActor();
   if (!actor) redirect(chatGPTSignInPath(`/modulos/${slug}`));
   if (actor.role === "unconfigured" || !canRead(actor.role)) return <AccessNotice configured={actor.role !== "unconfigured"} />;

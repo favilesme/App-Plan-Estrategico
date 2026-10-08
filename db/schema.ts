@@ -153,3 +153,76 @@ export const diagnosticInputs = sqliteTable("diagnostic_inputs", {
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (table) => [index("idx_diagnostic_inputs_cycle_area").on(table.cycleId, table.area)]);
+
+// Sprint 3 separates working factors, their source evidence and the immutable
+// lists approved for later matrices. Historical list snapshots are never edited.
+export const fodaSets = sqliteTable("foda_sets", {
+  id: text("id").primaryKey(),
+  cycleId: text("cycle_id").notNull().references(() => strategyCycles.id),
+  version: integer("version").notNull().default(1),
+  revision: integer("revision").notNull().default(0),
+  status: text("status").notNull().default("draft"),
+  frozenAt: text("frozen_at"),
+  frozenByUserId: text("frozen_by_user_id"),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [uniqueIndex("ux_foda_sets_cycle").on(table.cycleId)]);
+
+export const fodaFactors = sqliteTable("foda_factors", {
+  id: text("id").primaryKey(),
+  setId: text("set_id").notNull().references(() => fodaSets.id),
+  cycleId: text("cycle_id").notNull().references(() => strategyCycles.id),
+  axis: text("axis").notNull(),
+  code: text("code").notNull(),
+  sequence: integer("sequence").notNull(),
+  description: text("description").notNull(),
+  area: text("area").notNull(),
+  classificationReason: text("classification_reason").notNull(),
+  status: text("status").notNull().default("proposed"),
+  version: integer("version").notNull().default(1),
+  createdByUserId: text("created_by_user_id").notNull(),
+  updatedByUserId: text("updated_by_user_id").notNull(),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  uniqueIndex("ux_foda_factor_cycle_code").on(table.cycleId, table.code),
+  index("idx_foda_factor_set_axis").on(table.setId, table.axis, table.status),
+]);
+
+export const fodaEvidence = sqliteTable("foda_evidence", {
+  id: text("id").primaryKey(),
+  factorId: text("factor_id").notNull().references(() => fodaFactors.id),
+  evidenceType: text("evidence_type").notNull(),
+  statement: text("statement").notNull(),
+  sourceType: text("source_type").notNull(),
+  sourceDetail: text("source_detail").notNull(),
+  period: text("period").notNull(),
+  diagnosticInputId: text("diagnostic_input_id").references(() => diagnosticInputs.id),
+  version: integer("version").notNull().default(1),
+  createdByUserId: text("created_by_user_id").notNull(),
+  updatedByUserId: text("updated_by_user_id").notNull(),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [index("idx_foda_evidence_factor").on(table.factorId)]);
+
+export const fodaValidations = sqliteTable("foda_validations", {
+  id: text("id").primaryKey(),
+  setId: text("set_id").notNull().references(() => fodaSets.id),
+  setVersion: integer("set_version").notNull(),
+  revision: integer("revision").notNull(),
+  memberId: text("member_id").notNull().references(() => members.id),
+  decision: text("decision").notNull(),
+  rationale: text("rationale").notNull(),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [index("idx_foda_validation_set_revision").on(table.setId, table.setVersion, table.revision)]);
+
+export const fodaSetSnapshots = sqliteTable("foda_set_snapshots", {
+  id: text("id").primaryKey(),
+  setId: text("set_id").notNull().references(() => fodaSets.id),
+  version: integer("version").notNull(),
+  snapshotJson: text("snapshot_json").notNull(),
+  validationIdsJson: text("validation_ids_json").notNull(),
+  consultantApprovalId: text("consultant_approval_id"),
+  methodologyVersion: text("methodology_version").notNull(),
+  frozenByUserId: text("frozen_by_user_id").notNull(),
+  frozenAt: text("frozen_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [uniqueIndex("ux_foda_snapshot_set_version").on(table.setId, table.version)]);

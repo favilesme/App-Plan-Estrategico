@@ -41,7 +41,7 @@ export function AppShell({ children, active = "home" }: { children: React.ReactN
             </SidebarMenu></SidebarGroupContent>
           </SidebarGroup>
         </SidebarContent>
-        <SidebarFooter className="border-t border-[#48515e] px-5 py-5"><div className="flex items-center gap-2 text-[13px] text-[#E6C99F]"><LockKeyhole className="size-4" /> Piloto privado · Sprint 2</div></SidebarFooter>
+        <SidebarFooter className="border-t border-[#48515e] px-5 py-5"><div className="flex items-center gap-2 text-[13px] text-[#E6C99F]"><LockKeyhole className="size-4" /> Piloto privado · Sprint 3</div></SidebarFooter>
       </Sidebar>
       <SidebarInset className="min-w-0 bg-[#faf8f4]">
         <header className="flex h-17 items-center justify-between border-b border-[#e6dfd6] bg-white px-5 lg:px-9">

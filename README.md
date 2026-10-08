@@ -2,7 +2,7 @@
 
 Archivos fuente de la Aplicacion de Plan Estrategico creada en Sites.
 
-Aplicación privada de planificación estratégica de Anima Praxis. Este repositorio conserva el código fuente; cada instalación del Site mantiene sus propios usuarios, datos y configuración de entorno. El estado funcional actual corresponde al **Sprint 2**: arquitectura multiusuario, perfil empresarial, filosofía empresarial y diagnóstico guiado. Los módulos posteriores aparecen en la navegación y aún no ejecutan la metodología.
+Aplicación privada de planificación estratégica de Anima Praxis. Este repositorio conserva el código fuente; cada instalación del Site mantiene sus propios usuarios, datos y configuración de entorno. El estado funcional actual incluye el **Sprint 3**: arquitectura multiusuario, perfil empresarial, filosofía empresarial, diagnóstico guiado, análisis interno y externo, y depuración y aprobación de la FODA base. La FODA cuantitativa y los módulos posteriores aún no ejecutan sus cálculos metodológicos.
 
 ## Estructura
 
@@ -40,6 +40,7 @@ Para una base D1 local nueva, aplicar las migraciones una sola vez y en orden:
 ```sh
 node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0000_loose_moon_knight.sql
 node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0001_careful_skaar.sql
+node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0002_careless_george_stacy.sql
 npm run dev
 ```
 
