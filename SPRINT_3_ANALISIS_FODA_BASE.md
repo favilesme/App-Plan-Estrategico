@@ -12,6 +12,7 @@
 | Validación | Participación de al menos tres líderes activos, incluido el máximo director; solicitud de cambios bloquea el cierre. |
 | Dudas | Revisión excepcional del consultor si una duda vigente llega con quórum. La revisión previa del diagnóstico sigue siendo obligatoria. |
 | Cierre | La dirección congela la lista y conserva una instantánea de factores, evidencias, validaciones y revisión aplicable. Solo la dirección puede reabrir una nueva versión con motivo. |
+| Correcciones | En borrador, cualquier líder activo puede editar un factor o evidencia. Con la lista cerrada, un líder registra una solicitud sin modificar el dato aprobado; la dirección decide si reabre. El observador comunica hallazgos a un líder y conserva solo lectura. |
 
 La regla de **al menos un factor activo en cada categoría** es una condición técnica de cierre: evita pasar un eje vacío a las matrices FO/DA del siguiente sprint. No introduce puntajes ni cambia las fórmulas documentadas. El máximo diez aplica a factores activos de cada eje; los descartados siguen visibles e históricos. La detección automática de duplicados compara descripciones equivalentes tras normalizar mayúsculas, acentos y puntuación. Los líderes revisan además posibles equivalencias semánticas que el sistema no puede probar automáticamente.
 
@@ -20,6 +21,8 @@ La regla de **al menos un factor activo en cada categoría** es una condición t
 `drizzle/0002_careless_george_stacy.sql` añade cinco tablas D1: conjunto FODA, factores, evidencias, validaciones e instantáneas cerradas. Cada factor conserva código, categoría, área, clasificación, autor, versión y estado. Cada evidencia conserva tipo, declaración, origen, referencia, periodo, autor y vínculo opcional a un dato aportado en el diagnóstico. La aplicación identifica estas declaraciones como **datos aportados por el cliente**; el nombre de una fuente no equivale a verificación independiente. `audit_events` registra los cambios y sus motivos. Las validaciones se vinculan a la revisión vigente del conjunto: editar un factor o evidencia obliga a validar la nueva revisión.
 
 Las instantáneas cerradas conservan el identificador de la revisión del diagnóstico que las sustentó. Si el diagnóstico cambia después, la interfaz advierte que la dirección debe valorar una nueva versión antes de usar la lista para matrices. No se envían datos estratégicos a GitHub, GHL, Skool ni una base central.
+
+La migración `drizzle/0003_nebulous_medusa.sql` añade `foda_change_requests` para conservar solicitudes posteriores al cierre con factor, versión, líder solicitante, motivo y propuesta. También quedan en `audit_events`. Una solicitud no reabre la lista ni cambia un factor; al reabrir, el evento de dirección referencia las solicitudes de la versión anterior. La interfaz conserva las solicitudes históricas sin presentarlas como resueltas automáticamente.
 
 ## Puertas de aprobación
 
@@ -34,5 +37,7 @@ La revisión obligatoria del consultor sobre **prioridades y notas de la MDEP pi
 ## QA local y aceptación en producción
 
 Se aplicó la migración `0002` en D1 local y se registraron factores ficticios de tres categorías con evidencias; se comprobó su persistencia y el avance visual. Las seis pruebas automatizadas pasaron, junto con TypeScript, lint y la compilación. En el Site publicado se confirmó el renderizado de análisis interno y FODA base; la lista aún está vacía en producción, por lo que no se ejecutaron votos ni cierres reales.
+
+Para la corrección operativa se aplicó `0003` en D1 local y se probó, con factores ficticios, que el enlace de solicitud aparece en una lista cerrada, que la solicitud queda visible en la puerta de FODA y que el factor original conserva su descripción y versión. El estado ficticio se restauró al terminar la prueba. La validación con las cuentas reales y el Site publicado sigue pendiente.
 
 La aceptación con usuarios reales requiere que un líder cree y edite factores; otros dos líderes, incluido el director, validen; un observador solo lea; el consultor intervenga únicamente si se registra una duda; el director congele y, con motivo, reabra una nueva versión. Se debe confirmar que las validaciones caducan al cambiar un factor y que la instantánea anterior permanece visible. Usar datos ficticios y evitar modificar la estrategia real durante esta prueba.

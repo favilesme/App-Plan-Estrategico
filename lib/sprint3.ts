@@ -12,6 +12,11 @@ export type ConsultantReview = {
   source_ids_json: string; created_at: string;
 };
 
+export type FodaChangeRequest = {
+  id: string; set_id: string; set_version: number; factor_id: string;
+  member_id: string; reason: string; proposed_change: string; created_at: string;
+};
+
 export function fodaReviewSubject(set: FodaSet) {
   return `${set.id}:v${set.version}:r${set.revision}`;
 }
@@ -55,5 +60,11 @@ export async function getConsultantFodaReview(set: FodaSet) {
 export async function getFodaSnapshots(setId: string) {
   const result = await getD1().prepare("SELECT * FROM foda_set_snapshots WHERE set_id = ? ORDER BY version DESC")
     .bind(setId).all<FodaSnapshot>();
+  return result.results ?? [];
+}
+
+export async function getFodaChangeRequests(setId: string) {
+  const result = await getD1().prepare("SELECT * FROM foda_change_requests WHERE set_id = ? ORDER BY created_at DESC, rowid DESC")
+    .bind(setId).all<FodaChangeRequest>();
   return result.results ?? [];
 }

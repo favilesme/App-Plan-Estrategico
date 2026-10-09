@@ -226,3 +226,16 @@ export const fodaSetSnapshots = sqliteTable("foda_set_snapshots", {
   frozenByUserId: text("frozen_by_user_id").notNull(),
   frozenAt: text("frozen_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (table) => [uniqueIndex("ux_foda_snapshot_set_version").on(table.setId, table.version)]);
+
+// A correction request does not alter an approved factor. Direction decides
+// whether to reopen the frozen set; the request remains available for audit.
+export const fodaChangeRequests = sqliteTable("foda_change_requests", {
+  id: text("id").primaryKey(),
+  setId: text("set_id").notNull().references(() => fodaSets.id),
+  setVersion: integer("set_version").notNull(),
+  factorId: text("factor_id").notNull().references(() => fodaFactors.id),
+  memberId: text("member_id").notNull().references(() => members.id),
+  reason: text("reason").notNull(),
+  proposedChange: text("proposed_change").notNull(),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [index("idx_foda_change_requests_set_version").on(table.setId, table.setVersion)]);

@@ -180,6 +180,32 @@ export async function changeFodaFactorStatus(form: FormData) {
   await updateProgress(cycle.id, actor.user.userId); refresh(); redirect(`${path}?saved=1#${id}`);
 }
 
+export async function requestFodaCorrection(form: FormData) {
+  const axis = field(form, "axis");
+  const path = axisPath(axis);
+  const { actor, cycle, db } = await context(path);
+  await requireLeader(actor, path);
+  const set = await getFodaSet(cycle.id);
+  if (!set || set.status !== "frozen" || set.version !== Number(field(form, "expected_set_version")))
+    redirect(`${path}?error=stale`);
+  const factorId = field(form, "factor_id");
+  const factor = await db.prepare("SELECT id, axis, code, version FROM foda_factors WHERE id = ? AND set_id = ?")
+    .bind(factorId, set.id).first<{ id: string; axis: string; code: string; version: number }>();
+  if (!factor || factor.axis !== axis || factor.version !== Number(field(form, "expected_factor_version")))
+    redirect(`${path}?error=stale`);
+  const reason = field(form, "reason"), proposedChange = field(form, "proposed_change");
+  if (reason.length < 10 || reason.length > 1000 || proposedChange.length < 10 || proposedChange.length > 1500)
+    redirect(`${path}?error=request`);
+  const requestId = crypto.randomUUID();
+  await db.batch([
+    db.prepare("INSERT INTO foda_change_requests (id, set_id, set_version, factor_id, member_id, reason, proposed_change) VALUES (?, ?, ?, ?, ?, ?, ?)")
+      .bind(requestId, set.id, set.version, factor.id, actor.memberId, reason, proposedChange),
+    audit(db, actor, cycle.id, "foda.correction_requested", "foda_factor", factor.id,
+      { requestId, code: factor.code, setVersion: set.version, factorVersion: factor.version, reason, proposedChange }),
+  ]);
+  refresh(); redirect(`${path}?requested=1#${factor.id}`);
+}
+
 export async function validateFodaSet(form: FormData) {
   const path = "/modulos/foda";
   const { actor, cycle, db } = await context(path);
@@ -274,12 +300,15 @@ export async function reopenFodaSet(form: FormData) {
   const set = await getFodaSet(cycle.id), reason = field(form, "reason");
   if (!set || set.status !== "frozen" || set.version !== Number(field(form, "expected_version"))) redirect(`${path}?error=stale`);
   if (reason.length < 10 || reason.length > 1500) redirect(`${path}?error=invalid`);
+  const relatedRequests = await db.prepare("SELECT id FROM foda_change_requests WHERE set_id = ? AND set_version = ? ORDER BY created_at")
+    .bind(set.id, set.version).all<{ id: string }>();
   await db.batch([
     db.prepare("UPDATE foda_sets SET version = version + 1, revision = 0, status = 'draft', frozen_at = NULL, frozen_by_user_id = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND status = 'frozen' AND version = ?")
       .bind(set.id, set.version),
     db.prepare("UPDATE foda_factors SET status = 'proposed' WHERE set_id = ? AND status = 'approved'").bind(set.id),
     audit(db, actor, cycle.id, "foda.list_reopened", "foda_set", set.id,
-      { previousVersion: set.version, newVersion: set.version + 1, reason }),
+      { previousVersion: set.version, newVersion: set.version + 1, reason,
+        correctionRequestIds: relatedRequests.results?.map((item) => item.id) ?? [] }),
   ]);
   await updateProgress(cycle.id, actor.user.userId); refresh(); redirect(`${path}?reopened=1`);
 }
