@@ -76,6 +76,26 @@ export function quorum(validations: FodaValidation[], leaders: EligibleLeader[])
   };
 }
 
+export function consultantReviewGate(input: {
+  setStatus: FodaSet["status"] | null;
+  validation: ReturnType<typeof quorum>;
+  diagnosticApproved: boolean;
+  issueCount: number;
+  reviewStatus: string | null;
+}) {
+  const { setStatus, validation, diagnosticApproved, issueCount, reviewStatus } = input;
+  const pending = setStatus === "draft" && validation.hasDoubt && !reviewStatus;
+  const blockers: string[] = [];
+  if (pending) {
+    if (issueCount > 0) blockers.push(`Resolver ${issueCount} pendiente(s) de factores y evidencias.`);
+    if (!diagnosticApproved) blockers.push("Aprobar la revisión vigente del diagnóstico estratégico.");
+    if (validation.count < MIN_VALIDATION_QUORUM) blockers.push(`Registrar ${MIN_VALIDATION_QUORUM - validation.count} participación(es) válida(s) adicional(es) del Equipo de Alto Nivel.`);
+    if (!validation.hasDirector) blockers.push("Incluir la participación del gerente general o máximo director.");
+    if (validation.hasChangesRequested) blockers.push("Resolver la solicitud de cambios del equipo.");
+  }
+  return { pending, ready: pending && blockers.length === 0, blockers };
+}
+
 export function factorIssues(factors: FodaFactor[], evidence: FodaEvidence[]) {
   const active = factors.filter((item) => item.status !== "discarded");
   const duplicates = duplicateFactorIds(active);
