@@ -8,8 +8,11 @@ import { AppShell } from "@/components/app-shell";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { canRead, getActor } from "@/lib/authz";
+import { consultantReviewGate, factorIssues, latestValidations, quorum } from "@/lib/foda";
 import { modules, moduleHref } from "@/lib/modules";
-import { getCurrentCycle, getModuleProgress, getOrganization } from "@/lib/workspace";
+import { diagnosticSubject, getDiagnosticInputs, latestApproval } from "@/lib/sprint2";
+import { getConsultantFodaReview, getFodaEvidence, getFodaFactors, getFodaSet, getFodaValidations } from "@/lib/sprint3";
+import { getCurrentCycle, getMembers, getModuleProgress, getOrganization } from "@/lib/workspace";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +28,19 @@ export default async function Home() {
   const completed = progress.filter((item) => item.status === "approved").length;
   const overall = Math.round(progress.reduce((sum, item) => sum + item.percent, 0) / modules.length);
   const firstModule = progressByModule.get("organizacion");
+  let consultantFoda: ReturnType<typeof consultantReviewGate> | null = null;
+  if (actor.role === "consultant" && organization && cycle) {
+    const set = await getFodaSet(cycle.id);
+    if (set?.status === "draft") {
+      const [factors, evidence, votes, members, review, diagnostic] = await Promise.all([
+        getFodaFactors(set.id), getFodaEvidence(set.id), getFodaValidations(set), getMembers(organization.id),
+        getConsultantFodaReview(set), getDiagnosticInputs(cycle.id),
+      ]);
+      const diagnosticApproved = (await latestApproval(cycle.id, "diagnostic.review", diagnosticSubject(diagnostic)))?.status === "approved";
+      consultantFoda = consultantReviewGate({ setStatus: set.status, validation: quorum(latestValidations(votes), members),
+        diagnosticApproved, issueCount: factorIssues(factors, evidence).length, reviewStatus: review?.status ?? null });
+    }
+  }
 
   return <AppShell active="home"><div className="mx-auto w-full max-w-[1320px] px-5 py-8 lg:px-9 lg:py-10">
     <div className="mb-8 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
@@ -38,6 +54,14 @@ export default async function Home() {
       </div>
       {actor.role === "owner" && <Button asChild className="h-11 rounded-lg bg-[#192538] px-5 text-[14px] text-white hover:bg-[#344052]"><Link href={organization ? "/equipo" : "/organizacion"}>{organization ? "Gestionar equipo" : "Registrar organización"}</Link></Button>}
     </div>
+
+    {consultantFoda?.pending && <section role="status" className="mb-8 rounded-2xl border border-[#D6A871] bg-[#FBF5EB] p-6" aria-labelledby="consultant-foda-title">
+      <p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#5A626F]">Bandeja del consultor · FODA base</p>
+      <h2 id="consultant-foda-title" className="mt-2 text-xl font-semibold text-[#192538]">Duda registrada por el Equipo de Alto Nivel</h2>
+      <p className="mt-2 text-sm leading-6 text-[#192538]">{consultantFoda.ready ? "La revisión está lista para tu decisión metodológica." : "La duda ya está visible. La aprobación se habilitará cuando el equipo complete:"}</p>
+      {consultantFoda.blockers.length > 0 && <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-[#192538]">{consultantFoda.blockers.map((item) => <li key={item}>{item}</li>)}</ul>}
+      <Link href="/modulos/foda#revision-consultor" className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-[#192538] underline underline-offset-2">Ver duda y revisión <ArrowUpRight className="size-4" /></Link>
+    </section>}
 
     <div className="mb-8 grid gap-4 lg:grid-cols-[1.25fr_0.75fr]">
       <section className="rounded-2xl border border-[#E6DFD6] bg-white p-6 shadow-[0_8px_30px_rgba(14,41,58,0.04)]" aria-labelledby="progress-title">
