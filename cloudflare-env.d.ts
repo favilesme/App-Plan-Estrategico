@@ -3,5 +3,6 @@ declare namespace Cloudflare {
     DB?: D1Database;
     BUCKET?: R2Bucket;
     SITE_OWNER_EMAIL?: string;
+    OPENAI_API_KEY?: string;
   }
 }

@@ -73,8 +73,11 @@ export default defineConfig(async ({ command }) => {
             ? {
                 // Preview-only owner identity; production gets its own Sites
                 // environment value and never embeds a client's address.
-                ...(process.env.SITE_OWNER_EMAIL
-                  ? { vars: { SITE_OWNER_EMAIL: process.env.SITE_OWNER_EMAIL } }
+                ...((process.env.SITE_OWNER_EMAIL || process.env.OPENAI_API_KEY)
+                  ? { vars: {
+                      ...(process.env.SITE_OWNER_EMAIL ? { SITE_OWNER_EMAIL: process.env.SITE_OWNER_EMAIL } : {}),
+                      ...(process.env.OPENAI_API_KEY ? { OPENAI_API_KEY: process.env.OPENAI_API_KEY } : {}),
+                    } }
                   : {}),
                 services: [
                   {
