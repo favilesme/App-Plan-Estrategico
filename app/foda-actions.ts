@@ -310,5 +310,7 @@ export async function reopenFodaSet(form: FormData) {
       { previousVersion: set.version, newVersion: set.version + 1, reason,
         correctionRequestIds: relatedRequests.results?.map((item) => item.id) ?? [] }),
   ]);
+  await db.prepare("UPDATE module_progress SET status = 'in_progress', percent = 0, summary = ?, approved_by_user_id = NULL, approved_at = NULL, updated_by_user_id = ?, updated_at = CURRENT_TIMESTAMP WHERE cycle_id = ? AND module_slug = 'foda'")
+    .bind(`Lista FODA v${set.version + 1} reabierta; matriz pendiente`, actor.user.userId, cycle.id).run();
   await updateProgress(cycle.id, actor.user.userId); refresh(); redirect(`${path}?reopened=1`);
 }

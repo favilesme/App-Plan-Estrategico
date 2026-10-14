@@ -9,9 +9,11 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { canRead, getActor } from "@/lib/authz";
 import { consultantReviewGate, factorIssues, latestValidations, quorum } from "@/lib/foda";
+import { matrixVoteState } from "@/lib/foda-matrix";
 import { modules, moduleHref } from "@/lib/modules";
 import { diagnosticSubject, getDiagnosticInputs, latestApproval } from "@/lib/sprint2";
 import { getConsultantFodaReview, getFodaEvidence, getFodaFactors, getFodaSet, getFodaValidations } from "@/lib/sprint3";
+import { getMatrixReview, getMatrixVersions, getMatrixVotes } from "@/lib/sprint4";
 import { getCurrentCycle, getMembers, getModuleProgress, getOrganization } from "@/lib/workspace";
 
 export const dynamic = "force-dynamic";
@@ -29,8 +31,12 @@ export default async function Home() {
   const overall = Math.round(progress.reduce((sum, item) => sum + item.percent, 0) / modules.length);
   const firstModule = progressByModule.get("organizacion");
   let consultantFoda: ReturnType<typeof consultantReviewGate> | null = null;
+  let consultantMatrix: { pending: boolean; ready: boolean; matrixId: string } | null = null;
+  const fodaSet = cycle ? await getFodaSet(cycle.id) : null;
+  const matrixVersions = fodaSet ? await getMatrixVersions(fodaSet.id) : [];
+  const currentMatrix = matrixVersions.find((item) => item.set_version === fodaSet?.version);
   if (actor.role === "consultant" && organization && cycle) {
-    const set = await getFodaSet(cycle.id);
+    const set = fodaSet;
     if (set?.status === "draft") {
       const [factors, evidence, votes, members, review, diagnostic] = await Promise.all([
         getFodaFactors(set.id), getFodaEvidence(set.id), getFodaValidations(set), getMembers(organization.id),
@@ -40,7 +46,22 @@ export default async function Home() {
       consultantFoda = consultantReviewGate({ setStatus: set.status, validation: quorum(latestValidations(votes), members),
         diagnosticApproved, issueCount: factorIssues(factors, evidence).length, reviewStatus: review?.status ?? null });
     }
+    if (set?.status === "frozen" && currentMatrix?.status === "draft") {
+      const [votes, members, review] = await Promise.all([
+        getMatrixVotes(currentMatrix), getMembers(organization.id), getMatrixReview(cycle.id, currentMatrix),
+      ]);
+      const state = matrixVoteState(votes, members);
+      consultantMatrix = { pending: !review, ready: state.ready, matrixId: currentMatrix.id };
+    }
   }
+  const nextTitle = fodaSet?.status === "frozen"
+    ? currentMatrix?.status === "approved" ? "Formular la estrategia" : currentMatrix ? "Completar FODA cuantitativa" : "Iniciar FODA cuantitativa"
+    : organization ? "Completar perfil y equipo" : "Crear el primer ciclo";
+  const nextDescription = fodaSet?.status === "frozen"
+    ? currentMatrix?.status === "approved" ? "La matriz está aprobada. Continúa con la formulación estratégica basada en sus prioridades." :
+      "Califica FO y DA, interpreta FA y DO, analiza vulnerabilidad y registra la revisión del equipo y el consultor."
+    : organization ? "Completa el encuadre y la filosofía empresarial; después registra antecedentes del diagnóstico con sus fuentes." :
+      "Define la organización y el periodo de planificación. Después podrás asignar al Equipo de Alto Nivel.";
 
   return <AppShell active="home"><div className="mx-auto w-full max-w-[1320px] px-5 py-8 lg:px-9 lg:py-10">
     <div className="mb-8 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
@@ -62,6 +83,7 @@ export default async function Home() {
       {consultantFoda.blockers.length > 0 && <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-[#192538]">{consultantFoda.blockers.map((item) => <li key={item}>{item}</li>)}</ul>}
       <Link href="/modulos/foda#revision-consultor" className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-[#192538] underline underline-offset-2">Ver duda y revisión <ArrowUpRight className="size-4" /></Link>
     </section>}
+    {consultantMatrix?.pending && <section role="status" className="mb-8 rounded-2xl border border-[#D6A871] bg-[#FBF5EB] p-6"><p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#5A626F]">Bandeja del consultor · FODA cuantitativa</p><h2 className="mt-2 text-xl font-semibold text-[#192538]">Revisión de puntajes y prioridades</h2><p className="mt-2 text-sm text-[#192538]">{consultantMatrix.ready ? "El equipo alcanzó el quórum. Revisa el resultado y registra tu decisión." : "La matriz está en elaboración. Puedes revisar sus avances; la decisión se habilitará con el quórum."}</p><Link href={`/modulos/foda/matriz?matrix=${consultantMatrix.matrixId}`} className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-[#192538] underline underline-offset-2">Ver matriz <ArrowUpRight className="size-4" /></Link></section>}
 
     <div className="mb-8 grid gap-4 lg:grid-cols-[1.25fr_0.75fr]">
       <section className="rounded-2xl border border-[#E6DFD6] bg-white p-6 shadow-[0_8px_30px_rgba(14,41,58,0.04)]" aria-labelledby="progress-title">
@@ -69,8 +91,9 @@ export default async function Home() {
         <Progress value={overall} className="mt-6 h-2 bg-[#EEE8DF]" /><p className="mt-4 text-[14px] text-[#5A626F]">El porcentaje refleja captura y aprobaciones, no la calidad de la estrategia.</p>
       </section>
       <section className="rounded-2xl border border-[#E6C99F] bg-[#fbf5eb] p-6" aria-labelledby="next-title">
-        <p className="text-[13px] font-semibold uppercase tracking-[0.1em] text-[#5A626F]">Siguiente paso</p><h2 id="next-title" className="mt-2 text-xl font-semibold text-[#192538]">{organization ? "Completar perfil y equipo" : "Crear el primer ciclo"}</h2>
-        <p className="mt-2 text-[14px] leading-6 text-[#5A626F]">{organization ? "Completa el encuadre y la filosofía empresarial; después registra antecedentes del diagnóstico con sus fuentes." : "Define la organización y el periodo de planificación. Después podrás asignar al Equipo de Alto Nivel."}</p>
+        <p className="text-[13px] font-semibold uppercase tracking-[0.1em] text-[#5A626F]">Siguiente paso</p><h2 id="next-title" className="mt-2 text-xl font-semibold text-[#192538]">{nextTitle}</h2>
+        <p className="mt-2 text-[14px] leading-6 text-[#5A626F]">{nextDescription}</p>
+        {fodaSet?.status === "frozen" && currentMatrix?.status !== "approved" && <Link href="/modulos/foda/matriz" className="mt-3 inline-block text-sm font-semibold text-[#192538] underline underline-offset-2">Abrir matriz</Link>}
       </section>
     </div>
 
