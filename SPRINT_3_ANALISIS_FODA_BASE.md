@@ -34,6 +34,10 @@ La migración `drizzle/0003_nebulous_medusa.sql` añade `foda_change_requests` p
 
 La revisión obligatoria del consultor sobre **prioridades y notas de la MDEP piloto** corresponde a un sprint posterior y se conserva como regla independiente.
 
+### Visibilidad de dudas antes del quórum
+
+Una duda registrada en la revisión vigente se muestra desde ese momento en la FODA base y en la bandeja del inicio del consultor. La interfaz distingue **recibida, en preparación** de **lista para decisión** e indica los requisitos faltantes. La recepción de la duda no equivale a aprobación ni habilita el cierre: el formulario del consultor solo aparece tras el quórum, la revisión vigente del diagnóstico y los controles de factores. La alerta es interna al Site; no envía correos ni datos a plataformas externas. El caso publicado revisado el 13 de octubre de 2026 tenía una duda y 1 de 3 participaciones válidas, con el director incluido.
+
 ## QA local y aceptación en producción
 
 Se aplicó la migración `0002` en D1 local y se registraron factores ficticios de tres categorías con evidencias; se comprobó su persistencia y el avance visual. Las seis pruebas automatizadas pasaron, junto con TypeScript, lint y la compilación. En el Site publicado se confirmó el renderizado de análisis interno y FODA base; la lista aún está vacía en producción, por lo que no se ejecutaron votos ni cierres reales.
