@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { duplicateFactorIds, factorIssues, latestValidations, quorum } from "../lib/foda.ts";
+import { consultantReviewGate, duplicateFactorIds, factorIssues, latestValidations, quorum } from "../lib/foda.ts";
 
 const factor = (axis, number, description = `${axis} factor ${number}`) => ({
   id: `${axis}${number}`, set_id: "set", cycle_id: "cycle", axis, code: `${axis}${number}`,
@@ -48,4 +48,20 @@ test("quorum counts distinct active leaders, requires director, and routes doubt
   assert.equal(quorum([vote("director"), vote("l2", "changes_requested"), vote("l3")], leaders).ready, false);
   const latest = latestValidations([vote("l2", "doubt", "new"), vote("l2", "validated", "old")]);
   assert.equal(latest[0].decision, "doubt");
+});
+
+test("a documented doubt remains visible before quorum and enables consultant review only after all gates", () => {
+  const oneVote = quorum([vote("director", "doubt")], leaders);
+  const pending = consultantReviewGate({ setStatus: "draft", validation: oneVote,
+    diagnosticApproved: true, issueCount: 0, reviewStatus: null });
+  assert.equal(pending.pending, true);
+  assert.equal(pending.ready, false);
+  assert.match(pending.blockers.join(" "), /2 participación/);
+  const complete = consultantReviewGate({ setStatus: "draft",
+    validation: quorum([vote("director", "doubt"), vote("l2"), vote("l3")], leaders),
+    diagnosticApproved: true, issueCount: 0, reviewStatus: null });
+  assert.equal(complete.ready, true);
+  assert.deepEqual(complete.blockers, []);
+  assert.equal(consultantReviewGate({ setStatus: "draft", validation: oneVote,
+    diagnosticApproved: true, issueCount: 0, reviewStatus: "approved" }).pending, false);
 });
