@@ -239,3 +239,81 @@ export const fodaChangeRequests = sqliteTable("foda_change_requests", {
   proposedChange: text("proposed_change").notNull(),
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (table) => [index("idx_foda_change_requests_set_version").on(table.setId, table.setVersion)]);
+
+// Sprint 4 keeps every approved matrix version immutable and ties it to the
+// exact frozen factor snapshot that supplied its rows, columns and evidence.
+export const fodaMatrixVersions = sqliteTable("foda_matrix_versions", {
+  id: text("id").primaryKey(),
+  setId: text("set_id").notNull().references(() => fodaSets.id),
+  setVersion: integer("set_version").notNull(),
+  matrixVersion: integer("matrix_version").notNull(),
+  sourceSnapshotId: text("source_snapshot_id").notNull().references(() => fodaSetSnapshots.id),
+  revision: integer("revision").notNull().default(0),
+  status: text("status").notNull().default("draft"),
+  createdByUserId: text("created_by_user_id").notNull(),
+  approvedByUserId: text("approved_by_user_id"),
+  approvedAt: text("approved_at"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  uniqueIndex("ux_foda_matrix_version").on(table.setId, table.setVersion, table.matrixVersion),
+  index("idx_foda_matrix_set").on(table.setId, table.setVersion, table.status),
+]);
+
+export const fodaCrossScores = sqliteTable("foda_cross_scores", {
+  id: text("id").primaryKey(),
+  matrixId: text("matrix_id").notNull().references(() => fodaMatrixVersions.id),
+  quadrant: text("quadrant").notNull(),
+  internalFactorId: text("internal_factor_id").notNull().references(() => fodaFactors.id),
+  externalFactorId: text("external_factor_id").notNull().references(() => fodaFactors.id),
+  suggestedScore: integer("suggested_score"),
+  suggestedRationale: text("suggested_rationale"),
+  suggestedEvidenceIdsJson: text("suggested_evidence_ids_json").notNull().default("[]"),
+  finalScore: integer("final_score"),
+  finalRationale: text("final_rationale"),
+  finalEvidenceIdsJson: text("final_evidence_ids_json").notNull().default("[]"),
+  updatedByUserId: text("updated_by_user_id"),
+  version: integer("version").notNull().default(1),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [
+  uniqueIndex("ux_foda_cross_pair").on(table.matrixId, table.quadrant, table.internalFactorId, table.externalFactorId),
+  index("idx_foda_cross_matrix_quadrant").on(table.matrixId, table.quadrant),
+]);
+
+export const fodaMatrixVotes = sqliteTable("foda_matrix_votes", {
+  id: text("id").primaryKey(),
+  matrixId: text("matrix_id").notNull().references(() => fodaMatrixVersions.id),
+  matrixRevision: integer("matrix_revision").notNull(),
+  memberId: text("member_id").notNull().references(() => members.id),
+  decision: text("decision").notNull(),
+  rationale: text("rationale").notNull(),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [index("idx_foda_matrix_votes_revision").on(table.matrixId, table.matrixRevision)]);
+
+// FA and DO enrich interpretation without introducing another numeric scale.
+export const fodaQualitativeNotes = sqliteTable("foda_qualitative_notes", {
+  id: text("id").primaryKey(),
+  matrixId: text("matrix_id").notNull().references(() => fodaMatrixVersions.id),
+  quadrant: text("quadrant").notNull(),
+  narrative: text("narrative").notNull(),
+  factorIdsJson: text("factor_ids_json").notNull().default("[]"),
+  updatedByUserId: text("updated_by_user_id").notNull(),
+  version: integer("version").notNull().default(1),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [uniqueIndex("ux_foda_qualitative_quadrant").on(table.matrixId, table.quadrant)]);
+
+// Vulnerability is assessed only for DA Priority 1 weaknesses. Derived values
+// and zones are calculated from these categorical inputs, never entered by hand.
+export const fodaVulnerabilities = sqliteTable("foda_vulnerabilities", {
+  id: text("id").primaryKey(),
+  matrixId: text("matrix_id").notNull().references(() => fodaMatrixVersions.id),
+  weaknessFactorId: text("weakness_factor_id").notNull().references(() => fodaFactors.id),
+  impact: text("impact").notNull(),
+  probability: text("probability").notNull(),
+  actionCapacity: text("action_capacity").notNull(),
+  rationale: text("rationale").notNull(),
+  evidenceIdsJson: text("evidence_ids_json").notNull().default("[]"),
+  updatedByUserId: text("updated_by_user_id").notNull(),
+  version: integer("version").notNull().default(1),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [uniqueIndex("ux_foda_vulnerability_weakness").on(table.matrixId, table.weaknessFactorId)]);
