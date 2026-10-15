@@ -317,3 +317,137 @@ export const fodaVulnerabilities = sqliteTable("foda_vulnerabilities", {
   version: integer("version").notNull().default(1),
   updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (table) => [uniqueIndex("ux_foda_vulnerability_weakness").on(table.matrixId, table.weaknessFactorId)]);
+
+// Sprint 5: action priority belongs to the MDEP bridge, not to FO/DA factor scores.
+// The approved matrix reference makes the source of each action reproducible.
+export const strategicActionSets = sqliteTable("strategic_action_sets", {
+  id: text("id").primaryKey(),
+  cycleId: text("cycle_id").notNull().references(() => strategyCycles.id),
+  matrixId: text("matrix_id").notNull().references(() => fodaMatrixVersions.id),
+  businessUnit: text("business_unit").notNull().default(""),
+  offer: text("offer").notNull().default(""),
+  customers: text("customers").notNull().default(""),
+  market: text("market").notNull().default(""),
+  revision: integer("revision").notNull().default(0),
+  status: text("status").notNull().default("draft"),
+  approvedByUserId: text("approved_by_user_id"),
+  approvedAt: text("approved_at"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [uniqueIndex("ux_action_set_matrix").on(table.matrixId)]);
+
+export const strategicActions = sqliteTable("strategic_actions", {
+  id: text("id").primaryKey(),
+  actionSetId: text("action_set_id").notNull().references(() => strategicActionSets.id),
+  quadrant: text("quadrant").notNull(),
+  statement: text("statement").notNull(),
+  expectedEffect: text("expected_effect").notNull(),
+  factorIdsJson: text("factor_ids_json").notNull().default("[]"),
+  evidenceIdsJson: text("evidence_ids_json").notNull().default("[]"),
+  priority: integer("priority"),
+  priorityRationale: text("priority_rationale"),
+  version: integer("version").notNull().default(1),
+  updatedByUserId: text("updated_by_user_id").notNull(),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [index("idx_strategic_actions_set").on(table.actionSetId)]);
+
+export const strategicActionVotes = sqliteTable("strategic_action_votes", {
+  id: text("id").primaryKey(),
+  actionSetId: text("action_set_id").notNull().references(() => strategicActionSets.id),
+  setRevision: integer("set_revision").notNull(),
+  memberId: text("member_id").notNull().references(() => members.id),
+  decision: text("decision").notNull(),
+  rationale: text("rationale").notNull(),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [index("idx_action_votes_revision").on(table.actionSetId, table.setRevision)]);
+
+export const mdepAssessments = sqliteTable("mdep_assessments", {
+  id: text("id").primaryKey(),
+  actionSetId: text("action_set_id").notNull().references(() => strategicActionSets.id),
+  revision: integer("revision").notNull().default(0),
+  status: text("status").notNull().default("draft"),
+  competitiveContext: text("competitive_context").notNull().default(""),
+  choiceDirection: text("choice_direction"),
+  choiceRationale: text("choice_rationale"),
+  focusSegment: text("focus_segment"),
+  focusAdvantage: text("focus_advantage"),
+  focusExclusions: text("focus_exclusions"),
+  approvedByUserId: text("approved_by_user_id"),
+  approvedAt: text("approved_at"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [uniqueIndex("ux_mdep_action_set").on(table.actionSetId)]);
+
+export const mdepAffinities = sqliteTable("mdep_affinities", {
+  id: text("id").primaryKey(),
+  assessmentId: text("assessment_id").notNull().references(() => mdepAssessments.id),
+  actionId: text("action_id").notNull().references(() => strategicActions.id),
+  direction: text("direction").notNull(),
+  score: integer("score").notNull(),
+  rationale: text("rationale").notNull(),
+  evidenceIdsJson: text("evidence_ids_json").notNull().default("[]"),
+  updatedByUserId: text("updated_by_user_id").notNull(),
+  version: integer("version").notNull().default(1),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [uniqueIndex("ux_mdep_affinity").on(table.assessmentId, table.actionId, table.direction)]);
+
+// AI suggestions remain separate from the team's final affinity values.
+export const mdepAffinityDrafts = sqliteTable("mdep_affinity_drafts", {
+  id: text("id").primaryKey(),
+  assessmentId: text("assessment_id").notNull().references(() => mdepAssessments.id),
+  actionId: text("action_id").notNull().references(() => strategicActions.id),
+  suggestionsJson: text("suggestions_json").notNull(),
+  model: text("model").notNull(),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [uniqueIndex("ux_mdep_ai_action").on(table.assessmentId, table.actionId)]);
+
+export const mdepCriteria = sqliteTable("mdep_criteria", {
+  id: text("id").primaryKey(),
+  assessmentId: text("assessment_id").notNull().references(() => mdepAssessments.id),
+  scope: text("scope").notNull().default("general"),
+  direction: text("direction").notNull(),
+  criterionKey: text("criterion_key").notNull(),
+  score: integer("score").notNull(),
+  rationale: text("rationale").notNull(),
+  sourceDetail: text("source_detail").notNull(),
+  updatedByUserId: text("updated_by_user_id").notNull(),
+  version: integer("version").notNull().default(1),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [uniqueIndex("ux_mdep_criterion").on(table.assessmentId, table.scope, table.direction, table.criterionKey)]);
+
+export const mdepConditions = sqliteTable("mdep_conditions", {
+  id: text("id").primaryKey(),
+  assessmentId: text("assessment_id").notNull().references(() => mdepAssessments.id),
+  direction: text("direction").notNull(),
+  status: text("status").notNull(),
+  rationale: text("rationale").notNull(),
+  sourceDetail: text("source_detail").notNull(),
+  updatedByUserId: text("updated_by_user_id").notNull(),
+  version: integer("version").notNull().default(1),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [uniqueIndex("ux_mdep_condition").on(table.assessmentId, table.direction)]);
+
+export const mdepDirectionBriefs = sqliteTable("mdep_direction_briefs", {
+  id: text("id").primaryKey(),
+  assessmentId: text("assessment_id").notNull().references(() => mdepAssessments.id),
+  direction: text("direction").notNull(),
+  advantages: text("advantages").notNull(),
+  risks: text("risks").notNull(),
+  requiredCapabilities: text("required_capabilities").notNull(),
+  operationalImplications: text("operational_implications").notNull(),
+  marketCoherence: text("market_coherence").notNull(),
+  updatedByUserId: text("updated_by_user_id").notNull(),
+  version: integer("version").notNull().default(1),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [uniqueIndex("ux_mdep_direction_brief").on(table.assessmentId, table.direction)]);
+
+export const mdepVotes = sqliteTable("mdep_votes", {
+  id: text("id").primaryKey(),
+  assessmentId: text("assessment_id").notNull().references(() => mdepAssessments.id),
+  assessmentRevision: integer("assessment_revision").notNull(),
+  memberId: text("member_id").notNull().references(() => members.id),
+  direction: text("direction").notNull(),
+  rationale: text("rationale").notNull(),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [index("idx_mdep_votes_revision").on(table.assessmentId, table.assessmentRevision)]);
