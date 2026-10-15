@@ -6,6 +6,8 @@ import { AccessNotice } from "@/components/access-notice";
 import { AppShell } from "@/components/app-shell";
 import { FodaAnalysisPage } from "@/components/foda-analysis-page";
 import { FodaReviewPage } from "@/components/foda-review-page";
+import { StrategicActionsPage } from "@/components/strategic-actions-page";
+import { MdepPage } from "@/components/mdep-page";
 import { canRead, getActor } from "@/lib/authz";
 import { modules, type ModuleSlug } from "@/lib/modules";
 
@@ -17,6 +19,8 @@ export default async function ModulePage({ params, searchParams }: { params: Pro
   if (!selectedModule) notFound();
   if (slug === "analisis-interno" || slug === "analisis-externo") return <FodaAnalysisPage side={slug === "analisis-interno" ? "internal" : "external"} searchParams={searchParams} />;
   if (slug === "foda") return <FodaReviewPage searchParams={searchParams} />;
+  if (slug === "formulacion") return <StrategicActionsPage searchParams={searchParams} />;
+  if (slug === "porter") return <MdepPage searchParams={searchParams} />;
   const actor = await getActor();
   if (!actor) redirect(chatGPTSignInPath(`/modulos/${slug}`));
   if (actor.role === "unconfigured" || !canRead(actor.role)) return <AccessNotice configured={actor.role !== "unconfigured"} />;
