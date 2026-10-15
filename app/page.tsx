@@ -14,6 +14,7 @@ import { modules, moduleHref } from "@/lib/modules";
 import { diagnosticSubject, getDiagnosticInputs, latestApproval } from "@/lib/sprint2";
 import { getConsultantFodaReview, getFodaEvidence, getFodaFactors, getFodaSet, getFodaValidations } from "@/lib/sprint3";
 import { getMatrixReview, getMatrixVersions, getMatrixVotes } from "@/lib/sprint4";
+import { getActionSet, getActionVotes, getMdep, getMdepVotes, latestGate } from "@/lib/sprint5";
 import { getCurrentCycle, getMembers, getModuleProgress, getOrganization } from "@/lib/workspace";
 
 export const dynamic = "force-dynamic";
@@ -35,6 +36,9 @@ export default async function Home() {
   const fodaSet = cycle ? await getFodaSet(cycle.id) : null;
   const matrixVersions = fodaSet ? await getMatrixVersions(fodaSet.id) : [];
   const currentMatrix = matrixVersions.find((item) => item.set_version === fodaSet?.version);
+  const actionSet = currentMatrix?.status === "approved" ? await getActionSet(currentMatrix.id) : null;
+  const mdep = actionSet?.status === "approved" ? await getMdep(actionSet.id) : null;
+  let consultantStrategy: { title: string; href: string; ready: boolean } | null = null;
   if (actor.role === "consultant" && organization && cycle) {
     const set = fodaSet;
     if (set?.status === "draft") {
@@ -53,12 +57,28 @@ export default async function Home() {
       const state = matrixVoteState(votes, members);
       consultantMatrix = { pending: !review, ready: state.ready, matrixId: currentMatrix.id };
     }
+    if (actionSet?.status === "draft") {
+      const votes = await getActionVotes(actionSet);
+      const state = matrixVoteState(votes.map((v) => ({ ...v, matrix_id: v.action_set_id, matrix_revision: v.set_revision })), await getMembers(organization.id));
+      const review = await latestGate(cycle.id, "strategy.actions", `${actionSet.id}:r${actionSet.revision}`);
+      if (!review) consultantStrategy = { title: "Acciones y prioridades MDEP", href: "/modulos/formulacion", ready: state.ready };
+    } else if (mdep?.status === "draft") {
+      const votes = await getMdepVotes(mdep.id, mdep.revision);
+      const state = matrixVoteState(votes.map((v) => ({ ...v, matrix_id: v.assessment_id, matrix_revision: v.assessment_revision, decision: "validated" as const })), await getMembers(organization.id));
+      const review = await latestGate(cycle.id, "porter.mdep", `${mdep.id}:r${mdep.revision}`);
+      if (!review) consultantStrategy = { title: "Dirección competitiva MDEP", href: "/modulos/porter", ready: state.ready };
+    }
   }
   const nextTitle = fodaSet?.status === "frozen"
-    ? currentMatrix?.status === "approved" ? "Formular la estrategia" : currentMatrix ? "Completar FODA cuantitativa" : "Iniciar FODA cuantitativa"
+    ? currentMatrix?.status === "approved" ?
+      actionSet?.status !== "approved" ? "Formular acciones estratégicas" : mdep?.status !== "approved" ? "Evaluar estrategia competitiva" : "Definir objetivos estratégicos"
+      : currentMatrix ? "Completar FODA cuantitativa" : "Iniciar FODA cuantitativa"
     : organization ? "Completar perfil y equipo" : "Crear el primer ciclo";
   const nextDescription = fodaSet?.status === "frozen"
-    ? currentMatrix?.status === "approved" ? "La matriz está aprobada. Continúa con la formulación estratégica basada en sus prioridades." :
+    ? currentMatrix?.status === "approved" ? actionSet?.status !== "approved" ?
+      "Vincula acciones FO, FA, DO y DA con factores y evidencias; priorízalas y obtén la revisión del equipo y consultor." :
+      mdep?.status !== "approved" ? "Compara costes, diferenciación y enfoque con afinidad, viabilidad y condiciones verificables." :
+      "La dirección competitiva quedó aprobada. Traduce la decisión en objetivos estratégicos." :
       "Califica FO y DA, interpreta FA y DO, analiza vulnerabilidad y registra la revisión del equipo y el consultor."
     : organization ? "Completa el encuadre y la filosofía empresarial; después registra antecedentes del diagnóstico con sus fuentes." :
       "Define la organización y el periodo de planificación. Después podrás asignar al Equipo de Alto Nivel.";
@@ -84,6 +104,7 @@ export default async function Home() {
       <Link href="/modulos/foda#revision-consultor" className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-[#192538] underline underline-offset-2">Ver duda y revisión <ArrowUpRight className="size-4" /></Link>
     </section>}
     {consultantMatrix?.pending && <section role="status" className="mb-8 rounded-2xl border border-[#D6A871] bg-[#FBF5EB] p-6"><p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#5A626F]">Bandeja del consultor · FODA cuantitativa</p><h2 className="mt-2 text-xl font-semibold text-[#192538]">Revisión de puntajes y prioridades</h2><p className="mt-2 text-sm text-[#192538]">{consultantMatrix.ready ? "El equipo alcanzó el quórum. Revisa el resultado y registra tu decisión." : "La matriz está en elaboración. Puedes revisar sus avances; la decisión se habilitará con el quórum."}</p><Link href={`/modulos/foda/matriz?matrix=${consultantMatrix.matrixId}`} className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-[#192538] underline underline-offset-2">Ver matriz <ArrowUpRight className="size-4" /></Link></section>}
+    {consultantStrategy && <section role="status" className="mb-8 rounded-2xl border border-[#D6A871] bg-[#FBF5EB] p-6"><p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#5A626F]">Bandeja del consultor · Sprint 5</p><h2 className="mt-2 text-xl font-semibold text-[#192538]">{consultantStrategy.title}</h2><p className="mt-2 text-sm">{consultantStrategy.ready ? "El equipo alcanzó el quórum. Comprueba fuentes, notas y condiciones para registrar tu revisión." : "El equipo está completando su deliberación. Puedes revisar los avances."}</p><Link href={consultantStrategy.href} className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-[#192538] underline">Abrir revisión <ArrowUpRight className="size-4" /></Link></section>}
 
     <div className="mb-8 grid gap-4 lg:grid-cols-[1.25fr_0.75fr]">
       <section className="rounded-2xl border border-[#E6DFD6] bg-white p-6 shadow-[0_8px_30px_rgba(14,41,58,0.04)]" aria-labelledby="progress-title">
@@ -94,6 +115,8 @@ export default async function Home() {
         <p className="text-[13px] font-semibold uppercase tracking-[0.1em] text-[#5A626F]">Siguiente paso</p><h2 id="next-title" className="mt-2 text-xl font-semibold text-[#192538]">{nextTitle}</h2>
         <p className="mt-2 text-[14px] leading-6 text-[#5A626F]">{nextDescription}</p>
         {fodaSet?.status === "frozen" && currentMatrix?.status !== "approved" && <Link href="/modulos/foda/matriz" className="mt-3 inline-block text-sm font-semibold text-[#192538] underline underline-offset-2">Abrir matriz</Link>}
+        {currentMatrix?.status === "approved" && actionSet?.status !== "approved" && <Link href="/modulos/formulacion" className="mt-3 inline-block text-sm font-semibold text-[#192538] underline underline-offset-2">Abrir formulación</Link>}
+        {actionSet?.status === "approved" && mdep?.status !== "approved" && <Link href="/modulos/porter" className="mt-3 inline-block text-sm font-semibold text-[#192538] underline underline-offset-2">Abrir MDEP</Link>}
       </section>
     </div>
 
