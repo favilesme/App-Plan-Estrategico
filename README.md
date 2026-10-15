@@ -2,7 +2,7 @@
 
 Archivos fuente de la Aplicacion de Plan Estrategico creada en Sites.
 
-Aplicación privada de planificación estratégica de Anima Praxis. Este repositorio conserva el código fuente; cada instalación del Site mantiene sus propios usuarios, datos y configuración de entorno. El estado funcional actual incluye el **Sprint 4**: arquitectura multiusuario, perfil empresarial, diagnóstico guiado, análisis interno y externo, FODA base y FODA cuantitativa con revisión humana. La formulación competitiva y los módulos posteriores siguen pendientes.
+Aplicación privada de planificación estratégica de Anima Praxis. Este repositorio conserva el código fuente; cada instalación del Site mantiene sus propios usuarios, datos y configuración de entorno. El estado funcional actual incluye el **Sprint 5**: arquitectura multiusuario, perfil empresarial, diagnóstico guiado, análisis interno y externo, FODA base, FODA cuantitativa, formulación de acciones y evaluación competitiva MDEP con revisión humana. Los módulos de objetivos y ejecución siguen pendientes.
 
 ## Estructura
 
@@ -44,12 +44,13 @@ node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1
 node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0003_nebulous_medusa.sql
 node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0004_grey_jean_grey.sql
 node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0005_dark_silvermane.sql
+node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0006_greedy_eternals.sql
 npm run dev
 ```
 
 Abrir la dirección local que muestra Vite y entrar por `/signin-with-chatgpt?return_to=/`. El modo portable simula la identidad `seedy@sites.test` **solo en desarrollo local**. Si se usa otro correo de prueba, ponerlo también en `SITE_OWNER_EMAIL`. No usar información empresarial real en la base de prueba.
 
-`npm run build` verifica que el Worker pueda generarse; `npm run test:foda` comprueba fórmulas, escala, evidencia y quórum. `npm run lint` ejecuta el análisis estático. El archivo `.env.example` enumera los nombres de variables; el ejemplo no carga variables automáticamente. Para desarrollo local, exportar `OPENAI_API_KEY` en el shell si se quiere probar la propuesta IA. Para producción, configurar `SITE_OWNER_EMAIL` y el secreto `OPENAI_API_KEY` en las variables del Site, sin guardar valores en Git.
+`npm run build` verifica que el Worker pueda generarse; `npm run test:foda` y `npm run test:mdep` comprueban las reglas metodológicas. `npm run lint` ejecuta el análisis estático. El archivo `.env.example` enumera los nombres de variables; el ejemplo no carga variables automáticamente. Para desarrollo local, exportar `OPENAI_API_KEY` en el shell si se quiere probar la propuesta IA. Para producción, configurar `SITE_OWNER_EMAIL` y el secreto `OPENAI_API_KEY` en las variables del Site, sin guardar valores en Git.
 
 La generación IA se solicita cruce por cruce y consume el proyecto OpenAI del propietario. Su nota se guarda separada de la decisión final del equipo. Cada cruce requiere una sugerencia IA registrada antes de la calificación final. Si falta la clave o falla el servicio, el cruce queda pendiente hasta restablecerlo.
 
