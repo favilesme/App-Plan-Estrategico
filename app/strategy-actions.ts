@@ -4,6 +4,7 @@ import { env } from "cloudflare:workers";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getD1 } from "@/db";
+import { actionPriorityConflict } from "@/lib/action-priority";
 import { getActor } from "@/lib/authz";
 import { matrixVoteState } from "@/lib/foda-matrix";
 import { METHODOLOGY_VERSION } from "@/lib/methodology";
@@ -198,6 +199,7 @@ export async function approveStrategicActions(form: FormData) {
   if (!member.is_director) redirect(`${actionPath}?error=permission`);
   const set = await editableSet(matrix.id, field(form, "set_id"), Number(field(form, "revision")), actionPath);
   const actions = await getStrategicActions(set.id);
+  if (actions.some(actionPriorityConflict)) redirect(`${actionPath}?error=priority_conflict`);
   const state = matrixVoteState((await getActionVotes(set)).map((v) => ({ ...v, matrix_id: v.action_set_id, matrix_revision: v.set_revision })),
     await getMembers(actor.organizationId!));
   const review = await latestGate(cycle.id, "strategy.actions", `${set.id}:r${set.revision}`);
@@ -213,13 +215,43 @@ export async function approveStrategicActions(form: FormData) {
   refresh(); redirect(`${actionPath}?approved=1`);
 }
 
+/** Dirección opens a new working revision. Earlier votes, review and approval remain tied to their original revision. */
+export async function reopenStrategicActions(form: FormData) {
+  const { actor, cycle, matrix, db } = await context(actionPath);
+  const member = await leader(actor, actionPath);
+  if (!member.is_director) redirect(`${actionPath}?error=permission`);
+  const set = await getActionSet(matrix.id);
+  const revision = Number(field(form, "revision"));
+  const reason = field(form, "reason");
+  if (!set || set.id !== field(form, "set_id") || set.status !== "approved" ||
+      !Number.isInteger(revision) || set.revision !== revision || reason.length < 10 || reason.length > 1500)
+    redirect(`${actionPath}?error=reopen`);
+  // A started MDEP references these action weights; it must never be silently invalidated.
+  if (await getMdep(set.id)) redirect(`${actionPath}?error=mdep_started`);
+  const actions = await getStrategicActions(set.id);
+  const priorReview = await latestGate(cycle.id, "strategy.actions", `${set.id}:r${set.revision}`);
+  const priorVotes = await getActionVotes(set);
+  const result = await db.prepare("UPDATE strategic_action_sets SET status = 'draft', revision = revision + 1, approved_by_user_id = NULL, approved_at = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND status = 'approved' AND revision = ? AND NOT EXISTS (SELECT 1 FROM mdep_assessments WHERE action_set_id = ?)")
+    .bind(set.id, set.revision, set.id).run();
+  if (result.meta.changes !== 1) redirect(`${actionPath}?error=stale`);
+  await audit(db, actor, cycle.id, "strategy.actions_reopened", "strategic_action_set", set.id,
+    { reason, previousRevision: set.revision, nextRevision: set.revision + 1,
+      previousApproval: { by: set.approved_by_user_id, at: set.approved_at, review: priorReview, votes: priorVotes },
+      previousActions: actions }).run();
+  await progress(cycle.id, "formulacion", "in_progress", 50,
+    "Corrección de prioridades en revisión · requiere nuevo quórum y aprobación", actor.user.userId);
+  refresh(); redirect(`${actionPath}?reopened=1`);
+}
+
 export async function startMdep() {
   const { actor, cycle, matrix, db } = await context(porterPath);
   await leader(actor, porterPath);
   const set = await getActionSet(matrix.id);
   if (!set || set.status !== "approved") redirect(`${porterPath}?error=source`);
-  await db.prepare("INSERT OR IGNORE INTO mdep_assessments (id, action_set_id) VALUES (?, ?)")
+  if ((await getStrategicActions(set.id)).some(actionPriorityConflict)) redirect(`${actionPath}?error=priority_conflict`);
+  await db.prepare("INSERT OR IGNORE INTO mdep_assessments (id, action_set_id) SELECT ?, id FROM strategic_action_sets WHERE id = ? AND status = 'approved'")
     .bind(crypto.randomUUID(), set.id).run();
+  if (!(await getMdep(set.id))) redirect(`${porterPath}?error=source`);
   await progress(cycle.id, "porter", "in_progress", 5, "MDEP en evaluación", actor.user.userId);
   refresh(); redirect(porterPath);
 }

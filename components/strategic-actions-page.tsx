@@ -1,15 +1,16 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { chatGPTSignInPath } from "@/app/chatgpt-auth";
-import { approveStrategicActions, removeStrategicAction, reviewStrategicActions, saveActionScope,
+import { approveStrategicActions, removeStrategicAction, reopenStrategicActions, reviewStrategicActions, saveActionScope,
   saveStrategicAction, startStrategicActions, voteStrategicActions } from "@/app/strategy-actions";
+import { actionPriorityConflict, statedActionPriority } from "@/lib/action-priority";
 import { AccessNotice } from "@/components/access-notice";
 import { AppShell } from "@/components/app-shell";
 import { canRead, getActor } from "@/lib/authz";
 import { matrixVoteState, quadrantResults, vulnerabilityResult } from "@/lib/foda-matrix";
 import { getFodaSet } from "@/lib/sprint3";
 import { getMatrixScores, getMatrixSource, getMatrixVersions, getVulnerabilities } from "@/lib/sprint4";
-import { getActionSet, getActionVotes, getStrategicActions, latestGate, type StrategicAction } from "@/lib/sprint5";
+import { getActionSet, getActionVotes, getMdep, getStrategicActions, latestGate, type StrategicAction } from "@/lib/sprint5";
 import { getCurrentCycle, getMembers, getOrganization } from "@/lib/workspace";
 
 const input = "mt-1 w-full rounded-lg border border-[#C9C5BF] bg-white px-3 py-2 text-sm text-[#192538]";
@@ -17,7 +18,7 @@ const button = "rounded-lg bg-[#192538] px-4 py-2 text-sm font-semibold text-whi
 const card = "rounded-2xl border border-[#E6DFD6] bg-white p-5";
 const parse = (text: string) => { try { return JSON.parse(text) as string[]; } catch { return []; } };
 
-export async function StrategicActionsPage({ searchParams }: { searchParams: Promise<{ error?: string; saved?: string; approved?: string }> }) {
+export async function StrategicActionsPage({ searchParams }: { searchParams: Promise<{ error?: string; saved?: string; approved?: string; reopened?: string }> }) {
   const query = await searchParams;
   const actor = await getActor();
   if (!actor) redirect(chatGPTSignInPath("/modulos/formulacion"));
@@ -28,13 +29,16 @@ export async function StrategicActionsPage({ searchParams }: { searchParams: Pro
   const matrix = foda && (await getMatrixVersions(foda.id)).find((m) => m.set_version === foda.version);
   const source = matrix && await getMatrixSource(matrix.source_snapshot_id);
   const set = matrix && await getActionSet(matrix.id);
+  const mdep = set && await getMdep(set.id);
   const actions = set ? await getStrategicActions(set.id) : [];
+  const conflicts = actions.filter(actionPriorityConflict);
   const votes = set ? await getActionVotes(set) : [];
   const members = org ? await getMembers(org.id) : [];
   const voteState = matrixVoteState(votes.map((v) => ({ ...v, matrix_id: v.action_set_id, matrix_revision: v.set_revision })), members);
   const review = cycle && set ? await latestGate(cycle.id, "strategy.actions", `${set.id}:r${set.revision}`) : null;
   const canEdit = set?.status === "draft" && members.some((m) => m.id === actor.memberId && m.status === "active" && m.is_leader);
   const isDirector = canEdit && members.some((m) => m.id === actor.memberId && m.is_director);
+  const canReopen = set?.status === "approved" && !mdep && members.some((m) => m.id === actor.memberId && m.status === "active" && m.is_director);
   const allScores = matrix ? await getMatrixScores(matrix.id) : [];
   const fo = source && quadrantResults(source.data, "FO", allScores);
   const da = source && quadrantResults(source.data, "DA", allScores);
@@ -49,8 +53,9 @@ export async function StrategicActionsPage({ searchParams }: { searchParams: Pro
     <header><p className="text-xs font-semibold uppercase tracking-widest text-[#5A626F]">Sprint 5 · Puente FODA–MDEP</p>
       <h1 className="mt-2 font-serif text-3xl text-[#192538]">Formulación estratégica</h1>
       <p className="mt-3 max-w-3xl text-sm leading-6 text-[#5A626F]">Registra acciones concretas FO, FA, DO y DA. Cada acción debe indicar factores, evidencia, efecto esperado y prioridad propia de 1 a 5. Esa prioridad no cambia los puntajes FODA.</p></header>
-    {query.error && <p role="alert" className="rounded-lg bg-[#FBF0EA] p-3 text-sm text-[#7E3527]">No se guardó el cambio ({query.error}). Revisa campos, permisos y versión; actualiza la página si otra persona editó.</p>}
+    {query.error && <p role="alert" className="rounded-lg bg-[#FBF0EA] p-3 text-sm text-[#7E3527]">{query.error === "priority_conflict" ? "La prioridad numérica de una acción contradice la prioridad escrita en su texto. Corrige la discrepancia y vuelve a validar." : query.error === "mdep_started" ? "La evaluación MDEP ya comenzó; esta lista no puede reabrirse sin revisar primero sus cálculos y decisiones posteriores." : `No se guardó el cambio (${query.error}). Revisa campos, permisos y versión; actualiza la página si otra persona editó.`}</p>}
     {query.saved && <p role="status" className="text-sm text-[#31523B]">Cambio guardado y registrado para auditoría.</p>}
+    {query.reopened && <p role="status" className="text-sm text-[#31523B]">Nueva revisión abierta. Corrige la prioridad y vuelve a solicitar validación del equipo, consultor y director.</p>}
     {query.approved && <p role="status" className="text-sm text-[#31523B]">Lista de acciones aprobada por Dirección.</p>}
     {matrix?.status !== "approved" || !source ? <section className={card}><h2 className="font-semibold">Dependencia pendiente</h2><p className="mt-2 text-sm">Primero debe aprobarse la FODA cuantitativa.</p></section> : !set ?
       <section className={card}><h2 className="font-semibold">Iniciar lista de acciones</h2><p className="my-3 text-sm">Se usará la matriz aprobada v{matrix.matrix_version} y la lista congelada de factores. La fuente quedará registrada.</p>
@@ -63,6 +68,9 @@ export async function StrategicActionsPage({ searchParams }: { searchParams: Pro
           {canEdit && <button className={`${button} sm:col-span-2 sm:justify-self-start`}>Guardar alcance</button>}</form></section>
       <section className={card}><h2 className="text-lg font-semibold text-[#192538]">2. Acciones vinculadas al diagnóstico</h2>
         <p className="mt-2 text-sm text-[#5A626F]">La escala Pᵢ 1–5 mide importancia estratégica, no facilidad de ejecución. P1/P2 y las zonas de vulnerabilidad ayudan a justificarla; no se copian automáticamente.</p>
+        {conflicts.length > 0 && <div role="alert" className="mt-3 rounded-lg border border-[#D6A871] bg-[#FBF5EB] p-3 text-sm text-[#192538]"><p className="font-semibold">Prioridades contradictorias · MDEP pendiente</p>
+          {conflicts.map((action) => <p key={action.id} className="mt-1">A{String(actions.indexOf(action)+1).padStart(2,"0")} ({action.quadrant}): Pᵢ guardada {action.priority}; prioridad escrita {statedActionPriority(action.expected_effect) ?? statedActionPriority(action.priority_rationale ?? "")}/5.</p>)}
+          <p className="mt-2">El equipo debe confirmar el valor con evidencia y corregir el texto o el campo numérico. Ningún valor se cambiará automáticamente.</p></div>}
         <div className="mt-4 space-y-3">{actions.map((action, index) => <ActionCard key={action.id} item={action} index={index} setId={set.id} revision={set.revision}
           canEdit={Boolean(canEdit)} factors={source.data.factors} evidence={evidence} priority={priorities} zones={zones} factorById={factorById}/>)}</div>
         {canEdit && <details className="mt-5 rounded-xl border border-[#D6A871] bg-[#FBF5EB] p-4"><summary className="cursor-pointer font-semibold text-[#192538]">Añadir acción estratégica</summary>
@@ -79,7 +87,12 @@ export async function StrategicActionsPage({ searchParams }: { searchParams: Pro
           <p className="text-sm">Verifica enlaces con FODA, evidencia y fundamento de cada Pᵢ.</p><select name="decision" className={input}><option value="approved">Aprobar revisión metodológica</option><option value="changes_requested">Solicitar cambios</option></select>
           <textarea name="rationale" className={input} minLength={10} maxLength={1500} required placeholder="Observaciones y fundamento de la revisión"/><button className={button}>Registrar revisión del consultor</button></form>}
         {isDirector && voteState.ready && review?.status === "approved" && <form action={approveStrategicActions} className="mt-4"><input type="hidden" name="set_id" value={set.id}/><input type="hidden" name="revision" value={set.revision}/><button className={button}>Aprobar lista de acciones</button></form>}
-        {set.status === "approved" && <Link href="/modulos/porter" className="mt-4 inline-block text-sm font-semibold text-[#192538] underline">Continuar a dirección competitiva →</Link>}</section>
+        {set.status === "approved" && conflicts.length === 0 && <Link href="/modulos/porter" className="mt-4 inline-block text-sm font-semibold text-[#192538] underline">Continuar a dirección competitiva →</Link>}
+        {canReopen && <form action={reopenStrategicActions} className="mt-5 space-y-3 rounded-xl border border-[#D6A871] bg-[#FBF5EB] p-4"><input type="hidden" name="set_id" value={set.id}/><input type="hidden" name="revision" value={set.revision}/>
+          <p className="text-sm font-semibold">Abrir corrección de acciones y prioridades</p><p className="text-xs text-[#5A626F]">La aprobación anterior quedará en el historial. La nueva revisión exigirá otra vez quórum del Equipo de Alto Nivel, revisión del consultor y aprobación de Dirección. Si MDEP ya comenzó, esta reapertura se bloquea.</p>
+          <label className="block text-sm">Motivo de la corrección<textarea name="reason" className={input} minLength={10} maxLength={1500} required placeholder="Indica la acción y la contradicción que debe resolver el equipo"/></label>
+          <button className={button}>Abrir nueva revisión</button></form>}
+        {set.status === "approved" && mdep && conflicts.length > 0 && <p className="mt-4 text-sm text-[#933F34]">La MDEP ya utiliza esta lista. La corrección requiere revisar primero la evaluación posterior; no se modificará una prioridad aprobada en silencio.</p>}</section>
     </>}
   </main></AppShell>;
 }

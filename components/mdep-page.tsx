@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { actionPriorityConflict } from "@/lib/action-priority";
 import { redirect } from "next/navigation";
 import { chatGPTSignInPath } from "@/app/chatgpt-auth";
 import { approveMdep, reviewMdep, saveFocusDetail, saveMdepAffinity, saveMdepCondition,
@@ -40,6 +41,7 @@ export async function MdepPage({ searchParams }: { searchParams: Promise<{ error
     mdep ? getDirectionBriefs(mdep.id) : Promise.resolve([]),
     mdep ? getMdepVotes(mdep.id, mdep.revision) : Promise.resolve([]), org ? getMembers(org.id) : Promise.resolve([]),
   ]);
+  const priorityConflicts = actions.filter(actionPriorityConflict);
   const results = DIRECTIONS.map((d) => directionResult(actions.map((a) => ({ id: a.id, priority: a.priority })),
     affinities.map((a) => ({ action_id: a.action_id, direction: a.direction, score: a.score })),
     criteria.filter((c) => c.scope === "general").map((c) => ({ direction: c.direction, criterion_key: c.criterion_key, score: c.score })),
@@ -64,7 +66,7 @@ export async function MdepPage({ searchParams }: { searchParams: Promise<{ error
     {query.approved && <p role="status" className="text-sm text-[#31523B]">Dirección estratégica aprobada por Dirección.</p>}
     {!set || set.status !== "approved" ? <section className={card}><h2 className="font-semibold">Acciones pendientes</h2><p className="mt-2 text-sm">La lista de acciones y prioridades debe estar aprobada antes de calcular la MDEP.</p><Link href="/modulos/formulacion" className="mt-3 inline-block text-sm underline">Abrir formulación</Link></section> : !mdep ?
       <section className={card}><h2 className="font-semibold">Iniciar MDEP</h2><p className="my-3 text-sm">Unidad: {set.business_unit} · Oferta: {set.offer} · Mercado: {set.market}. Se usarán las {actions.length} acciones aprobadas.</p>
-        {members.some((m) => m.id === actor.memberId && m.is_leader) && <form action={startMdep}><button className={button}>Iniciar comparación</button></form>}</section> : <>
+        {priorityConflicts.length > 0 ? <p role="alert" className="rounded-lg bg-[#FBF5EB] p-3 text-sm">Hay una prioridad escrita que contradice el valor Pᵢ guardado. <Link href="/modulos/formulacion" className="font-semibold underline">Revisar acciones</Link> antes de calcular.</p> : members.some((m) => m.id === actor.memberId && m.is_leader) && <form action={startMdep}><button className={button}>Iniciar comparación</button></form>}</section> : <>
       <section className={card}><h2 className="text-lg font-semibold text-[#192538]">1. Contexto competitivo</h2>
         <p className="mt-2 text-sm">Registra solo datos disponibles sobre rivalidad, nuevos entrantes, clientes, proveedores y sustitutos. Señala [FALTA] cuando no haya información suficiente; una objeción material debe quedar visible en la deliberación.</p>
         <form action={saveMdepContext} className="mt-3 space-y-2"><input type="hidden" name="assessment_id" value={mdep.id}/><input type="hidden" name="revision" value={mdep.revision}/>
