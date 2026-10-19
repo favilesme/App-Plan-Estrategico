@@ -276,7 +276,7 @@ export async function saveMdepAffinity(form: FormData) {
     audit(db, actor, cycle.id, "mdep.affinity_saved", "mdep_assessment", mdep.id,
       { actionId: action.id, direction, score, evidence, rationale, previous: previous ?? null, revision: mdep.revision + 1 }),
   ]);
-  refresh(); redirect(`${porterPath}?saved=1`);
+  refresh(); redirect(`${porterPath}?saved=${encodeURIComponent(action.id)}#accion-${encodeURIComponent(action.id)}`);
 }
 
 export async function suggestMdepAffinities(form: FormData) {
@@ -312,18 +312,25 @@ export async function suggestMdepAffinities(form: FormData) {
               } } } } } } },
       }),
     });
-    if (!response.ok) throw new Error("AI request failed");
+    if (!response.ok) throw new Error(`service_${response.status}`);
     const payload = await response.json() as { output?: Array<{ content?: Array<{ type?: string; text?: string }> }> };
     const text = payload.output?.flatMap((o) => o.content ?? []).find((x) => x.type === "output_text")?.text;
-    if (!text) throw new Error("AI response empty");
+    if (!text) throw new Error("response_empty");
     suggestions = (JSON.parse(text) as { suggestions: typeof suggestions }).suggestions;
     const allowed = new Set(evidence.map((e) => e.id));
     if (!Array.isArray(suggestions) || suggestions.length !== 3 ||
       new Set(suggestions.map((s) => s.direction)).size !== 3 ||
       suggestions.some((s) => !DIRECTIONS.includes(s.direction) || !Number.isInteger(s.score) || s.score < 0 || s.score > 3 ||
         s.rationale.trim().length < 10 || s.rationale.length > 1000 || !Array.isArray(s.evidence_ids) ||
-        !s.evidence_ids.length || s.evidence_ids.some((id) => !allowed.has(id)))) throw new Error("AI response invalid");
-  } catch { redirect(`${porterPath}?error=ai`); } finally { clearTimeout(timer); }
+        !s.evidence_ids.length || s.evidence_ids.some((id) => !allowed.has(id)))) throw new Error("response_invalid");
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : "unknown";
+    const category = reason.startsWith("service_") ? "ai_service" :
+      reason === "response_empty" || reason === "response_invalid" || error instanceof SyntaxError ? "ai_response" :
+      error instanceof Error && error.name === "AbortError" ? "ai_timeout" : "ai";
+    console.error("mdep_affinity_ai_draft_failed", { category, reason: reason.startsWith("service_") ? reason : category });
+    redirect(`${porterPath}?error=${category}`);
+  } finally { clearTimeout(timer); }
   await bumpMdep(mdep);
   await db.batch([
     db.prepare("INSERT INTO mdep_affinity_drafts (id, assessment_id, action_id, suggestions_json, model) VALUES (?, ?, ?, ?, ?) ON CONFLICT(assessment_id, action_id) DO UPDATE SET suggestions_json = excluded.suggestions_json, model = excluded.model, created_at = CURRENT_TIMESTAMP")

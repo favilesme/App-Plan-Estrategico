@@ -22,6 +22,15 @@ const input = "mt-1 w-full rounded-lg border border-[#C9C5BF] bg-white px-3 py-2
 const button = "rounded-lg bg-[#192538] px-4 py-2 text-sm font-semibold text-white hover:bg-[#344052]";
 const card = "rounded-2xl border border-[#E6DFD6] bg-white p-5";
 const parse = (raw: string) => { try { return JSON.parse(raw) as string[]; } catch { return []; } };
+const porterErrors: Record<string, string> = {
+  ai: "No se pudo generar el borrador de IA. Las afinidades ya guardadas permanecen registradas; puedes revisar la causa e intentarlo de nuevo.",
+  ai_service: "El servicio de IA no respondió correctamente. Las afinidades guardadas permanecen registradas; inténtalo de nuevo más tarde.",
+  ai_timeout: "La generación de IA tardó demasiado. Las afinidades guardadas permanecen registradas; inténtalo de nuevo.",
+  ai_response: "La IA no devolvió un borrador completo y verificable. Las afinidades guardadas permanecen registradas; inténtalo de nuevo.",
+  ai_unavailable: "La generación de IA no está disponible en este momento. Las afinidades guardadas permanecen registradas.",
+  affinity: "No se guardó la afinidad. Indica una nota de 0 a 3, una justificación de al menos 10 caracteres y al menos una evidencia de la acción.",
+  stale: "La valoración cambió en otra sesión. Actualiza la página y revisa los datos antes de guardar.",
+};
 
 export async function MdepPage({ searchParams }: { searchParams: Promise<{ error?: string; saved?: string; approved?: string; suggested?: string }> }) {
   const query = await searchParams;
@@ -67,8 +76,8 @@ export async function MdepPage({ searchParams }: { searchParams: Promise<{ error
     <header><p className="text-xs font-semibold uppercase tracking-widest text-[#5A626F]">Sprint 5 · MDEP piloto 1.1</p>
       <h1 className="mt-2 font-serif text-3xl text-[#192538]">Dirección competitiva</h1>
       <p className="mt-3 max-w-3xl text-sm leading-6 text-[#5A626F]">Compara costes, diferenciación y enfoque con la metodología experimental de Anima Praxis. Las categorías competitivas vienen de Porter; las escalas, el 60/40 y los umbrales son del piloto. Toda recomendación requiere evidencia y decisión del cliente.</p></header>
-    {query.error && <p role="alert" className="rounded-lg bg-[#FBF0EA] p-3 text-sm text-[#7E3527]">No se guardó ({query.error}). Revisa las condiciones, la información requerida y la versión de trabajo.</p>}
-    {query.saved && <p role="status" className="text-sm text-[#31523B]">Valoración guardada con trazabilidad.</p>}
+    {query.error && <p role="alert" className="rounded-lg bg-[#FBF0EA] p-3 text-sm text-[#7E3527]">{porterErrors[query.error] ?? `No se completó la operación (${query.error}). Revisa la información y la versión de trabajo.`}</p>}
+    {query.saved && <p role="status" className="rounded-lg bg-[#EAF3EC] p-3 text-sm text-[#31523B]">Afinidad guardada. La valoración permanece pendiente de la revisión final MDEP.</p>}
     {query.suggested && <p role="status" className="rounded-lg bg-[#FBF5EB] p-3 text-sm text-[#192538]">Borrador de IA generado para la acción indicada. Revisa y guarda cada afinidad para convertirla en valoración del equipo.</p>}
     {query.approved && <p role="status" className="text-sm text-[#31523B]">Dirección estratégica aprobada por Dirección.</p>}
     {!set || set.status !== "approved" ? <section className={card}><h2 className="font-semibold">Acciones pendientes</h2><p className="mt-2 text-sm">La lista de acciones y prioridades debe estar aprobada antes de calcular la MDEP.</p><Link href="/modulos/formulacion" className="mt-3 inline-block text-sm underline">Abrir formulación</Link></section> : !mdep ?
@@ -81,9 +90,9 @@ export async function MdepPage({ searchParams }: { searchParams: Promise<{ error
           {canEdit && <button className={button}>Guardar contexto</button>}</form></section>
       <section className={card}><h2 className="text-lg font-semibold text-[#192538]">2. Afinidad de cada acción</h2>
         <p className="mt-2 text-sm text-[#5A626F]">0 sin relación · 1 indirecta · 2 significativa · 3 directa. La nota no mide viabilidad. Toda acción aprobada entra en el denominador, incluso con afinidad 0.</p>
-        <div className="mt-4 space-y-3">{actions.map((action, index) => <details key={action.id} id={`accion-${action.id}`} open={query.suggested === action.id} className="rounded-xl border p-4"><summary className="cursor-pointer text-sm font-semibold text-[#192538]">A{String(index+1).padStart(2,"0")} · Pᵢ {action.priority} · {action.statement}</summary>
+        <div className="mt-4 space-y-3">{actions.map((action, index) => <details key={action.id} id={`accion-${action.id}`} open={query.suggested === action.id || query.saved === action.id} className="rounded-xl border p-4"><summary className="cursor-pointer text-sm font-semibold text-[#192538]">A{String(index+1).padStart(2,"0")} · Pᵢ {action.priority} · {action.statement}</summary>
           <p className="mt-2 text-xs">{action.quadrant} · {action.expected_effect} · Factores {parse(action.factor_ids_json).length} · Evidencias {parse(action.evidence_ids_json).length}</p>
-          {canEdit && <form action={suggestMdepAffinities} className="mt-3"><input type="hidden" name="assessment_id" value={mdep.id}/><input type="hidden" name="revision" value={mdep.revision}/><input type="hidden" name="action_id" value={action.id}/><button className={button}>Generar borrador de afinidades con IA</button></form>}
+          {canEdit && <form action={suggestMdepAffinities} className="mt-3"><input type="hidden" name="assessment_id" value={mdep.id}/><input type="hidden" name="revision" value={mdep.revision}/><input type="hidden" name="action_id" value={action.id}/><button className={button}>{drafts.some((d) => d.action_id === action.id) ? "Regenerar borrador de IA" : "Generar borrador de afinidades con IA"}</button><p className="mt-1 text-xs text-[#5A626F]">El borrador no modifica las afinidades guardadas.</p></form>}
           <div className="mt-3 grid gap-3 lg:grid-cols-3">{DIRECTIONS.map((direction) => <AffinityForm key={direction} mdep={mdep} action={action} direction={direction}
             current={affinities.find((a) => a.action_id === action.id && a.direction === direction)}
             draft={parseAffinitySuggestions(drafts.find((d) => d.action_id === action.id)?.suggestions_json ?? "[]").find((s) => s.direction === direction)}
@@ -140,10 +149,7 @@ function AffinityForm({ mdep, action, direction, current, draft, evidenceById, c
   evidenceById: ReadonlyMap<string, { factorCode: string; statement: string; sourceDetail: string; period: string }>;
   canEdit: boolean }) {
   const evidence = parse(action.evidence_ids_json), selected = parse(current?.evidence_ids_json ?? "[]");
-  return <div className="rounded-lg bg-[#FAF8F4] p-3 text-xs"><h4 className="font-semibold">{DIRECTION_LABELS[direction]} · {current?.score ?? "[FALTA]"}</h4>
-    {current && <p className="mt-1">{current.rationale}</p>}
-    {draft && <p className="mt-2 rounded bg-[#FBF5EB] p-2">Borrador IA: {draft.score} · {draft.rationale}</p>}
-    {canEdit && <form key={JSON.stringify([current?.version, draft])} action={saveMdepAffinity} className="mt-2 space-y-2"><input type="hidden" name="assessment_id" value={mdep.id}/><input type="hidden" name="revision" value={mdep.revision}/><input type="hidden" name="action_id" value={action.id}/><input type="hidden" name="direction" value={direction}/>
+  const editor = canEdit && <form key={JSON.stringify([current?.version, draft])} action={saveMdepAffinity} className="mt-2 space-y-2"><input type="hidden" name="assessment_id" value={mdep.id}/><input type="hidden" name="revision" value={mdep.revision}/><input type="hidden" name="action_id" value={action.id}/><input type="hidden" name="direction" value={direction}/>
       <select name="score" className={input} defaultValue={current?.score ?? draft?.score ?? ""} required><option value="">[FALTA]</option>{[0,1,2,3].map((v) => <option key={v} value={v}>{v}</option>)}</select>
       <textarea name="rationale" className={input} defaultValue={current?.rationale ?? draft?.rationale ?? ""} minLength={10} maxLength={1000} required placeholder="Relación de la acción con esta dirección"/>
       <fieldset><legend className="font-semibold">Evidencias de la acción</legend><div className="mt-1 space-y-2">{evidence.map((id) => {
@@ -153,7 +159,12 @@ function AffinityForm({ mdep, action, direction, current, draft, evidenceById, c
           <span className="min-w-0 break-words">{item ? <><span className="font-semibold">{item.factorCode} · {item.statement}</span><span className="block text-[#5A626F]">Fuente: {item.sourceDetail} · Período: {item.period}</span></> : <span className="text-[#933F34]">Evidencia no disponible en la matriz aprobada · referencia {id}</span>}</span>
         </label>;
       })}</div></fieldset>
-      <button className={button}>Guardar afinidad</button></form>}</div>;
+      <button className={button}>{current ? "Guardar cambios" : "Guardar afinidad"}</button></form>;
+  return <div className="rounded-lg bg-[#FAF8F4] p-3 text-xs"><h4 className="font-semibold">{DIRECTION_LABELS[direction]} · {current ? `Guardada: ${current.score}/3` : "[FALTA]"}</h4>
+    {current ? <><p className="mt-1 rounded bg-[#EAF3EC] p-2 text-[#31523B]">Valoración registrada · {mdep.status === "approved" ? "incluida en la MDEP aprobada" : "pendiente de revisión final MDEP"}.</p><p className="mt-2">{current.rationale}</p><p className="mt-1 text-[#5A626F]">Evidencias vinculadas: {selected.length}</p></> :
+      draft && <p className="mt-2 rounded bg-[#FBF5EB] p-2">Borrador IA: {draft.score} · {draft.rationale}</p>}
+    {current && canEdit ? <details className="mt-3 rounded-lg border border-[#C9C5BF] bg-white p-2"><summary className="cursor-pointer font-semibold text-[#192538]">Editar afinidad</summary>{editor}</details> : editor}
+  </div>;
 }
 
 function CriterionForm({ mdep, direction, criterion, current, canEdit, scope="general" }: { mdep: MdepAssessment; direction: Direction;
