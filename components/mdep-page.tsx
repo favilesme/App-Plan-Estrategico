@@ -29,10 +29,15 @@ const porterErrors: Record<string, string> = {
   ai_response: "La IA no devolvió un borrador completo y verificable. Las afinidades guardadas permanecen registradas; inténtalo de nuevo.",
   ai_unavailable: "La generación de IA no está disponible en este momento. Las afinidades guardadas permanecen registradas.",
   affinity: "No se guardó la afinidad. Indica una nota de 0 a 3, una justificación de al menos 10 caracteres y al menos una evidencia de la acción.",
+  vote: "No se registró la deliberación. Revisa en la sección 6 si hay una dirección elegible y completa la justificación.",
+  vote_incomplete: "La MDEP aún tiene información pendiente. Completa contexto, valoraciones, condiciones y fichas antes de deliberar.",
+  vote_blocked: "La dirección propuesta está bloqueada por su condición obligatoria. Valida la evidencia antes de registrarla como propuesta elegible.",
+  vote_rationale: "La justificación de la deliberación debe tener entre 10 y 1500 caracteres.",
+  voted: "Ya registraste tu participación en esta versión de la MDEP.",
   stale: "La valoración cambió en otra sesión. Actualiza la página y revisa los datos antes de guardar.",
 };
 
-export async function MdepPage({ searchParams }: { searchParams: Promise<{ error?: string; saved?: string; approved?: string; suggested?: string; action?: string; criterion?: string; condition?: string }> }) {
+export async function MdepPage({ searchParams }: { searchParams: Promise<{ error?: string; saved?: string; approved?: string; suggested?: string; action?: string; criterion?: string; condition?: string; brief?: string }> }) {
   const query = await searchParams;
   const actor = await getActor();
   if (!actor) redirect(chatGPTSignInPath("/modulos/porter"));
@@ -69,6 +74,9 @@ export async function MdepPage({ searchParams }: { searchParams: Promise<{ error
   const review = cycle && mdep ? await latestGate(cycle.id, "porter.mdep", `${mdep.id}:r${mdep.revision}`) : null;
   const allComplete = Boolean(mdep && mdep.competitive_context.length >= 20 && results.every((r) => r.score !== null &&
     conditions.some((c) => c.direction === r.direction) && briefs.some((b) => b.direction === r.direction)));
+  const eligibleResults = results.filter((r) => r.eligible);
+  const contextRecorded = Boolean(mdep?.competitive_context.trim());
+  const focusRecorded = Boolean(mdep?.focus_segment && mdep.focus_advantage && mdep.focus_exclusions);
   const segmentCriteria = criteria.filter((c) => c.scope === "segment");
   const segmentScores = { costes: viabilityScore(segmentCriteria, "costes"), diferenciacion: viabilityScore(segmentCriteria, "diferenciacion") };
   return <AppShell active="porter"><main className="mx-auto max-w-6xl space-y-6 px-5 py-8 lg:px-9">
@@ -77,17 +85,21 @@ export async function MdepPage({ searchParams }: { searchParams: Promise<{ error
       <h1 className="mt-2 font-serif text-3xl text-[#192538]">Dirección competitiva</h1>
       <p className="mt-3 max-w-3xl text-sm leading-6 text-[#5A626F]">Compara costes, diferenciación y enfoque con la metodología experimental de Anima Praxis. Las categorías competitivas vienen de Porter; las escalas, el 60/40 y los umbrales son del piloto. Toda recomendación requiere evidencia y decisión del cliente.</p></header>
     {query.error && <p role="alert" className="rounded-lg bg-[#FBF0EA] p-3 text-sm text-[#7E3527]">{porterErrors[query.error] ?? `No se completó la operación (${query.error}). Revisa la información y la versión de trabajo.`}</p>}
-    {query.saved && <p role="status" className="rounded-lg bg-[#EAF3EC] p-3 text-sm text-[#31523B]">{actions.some((a) => a.id === query.saved) ? "Afinidad guardada. La valoración permanece pendiente de la revisión final MDEP." : query.saved === "criterion" ? "Criterio registrado. Puedes revisarlo y abrir Editar criterio si necesitas cambiarlo." : query.saved === "condition" ? "Condición registrada. Puedes revisarla y abrir Editar condición si necesitas cambiarla." : "Valoración guardada con trazabilidad."}</p>}
+    {query.saved && <p role="status" className="rounded-lg bg-[#EAF3EC] p-3 text-sm text-[#31523B]">{actions.some((a) => a.id === query.saved) ? "Afinidad guardada. La valoración permanece pendiente de la revisión final MDEP." : query.saved === "criterion" ? "Criterio registrado. Puedes revisarlo y abrir Editar criterio si necesitas cambiarlo." : query.saved === "condition" ? "Condición registrada. Puedes revisarla y abrir Editar condición si necesitas cambiarla." : query.saved === "context" ? "Contexto competitivo registrado. Puedes abrir Editar contexto si necesitas revisarlo." : query.saved === "brief" ? "Ficha estratégica registrada. Puedes abrir Editar ficha si necesitas revisarla." : query.saved === "focus" ? "Enfoque del segmento registrado. Puedes abrir Editar enfoque si necesitas revisarlo." : "Valoración guardada con trazabilidad."}</p>}
     {query.suggested && <p role="status" className="rounded-lg bg-[#FBF5EB] p-3 text-sm text-[#192538]">Borrador de IA generado para la acción indicada. Revisa y guarda cada afinidad para convertirla en valoración del equipo.</p>}
     {query.approved && <p role="status" className="text-sm text-[#31523B]">Dirección estratégica aprobada por Dirección.</p>}
     {!set || set.status !== "approved" ? <section className={card}><h2 className="font-semibold">Acciones pendientes</h2><p className="mt-2 text-sm">La lista de acciones y prioridades debe estar aprobada antes de calcular la MDEP.</p><Link href="/modulos/formulacion" className="mt-3 inline-block text-sm underline">Abrir formulación</Link></section> : !mdep ?
       <section className={card}><h2 className="font-semibold">Iniciar MDEP</h2><p className="my-3 text-sm">Unidad: {set.business_unit} · Oferta: {set.offer} · Mercado: {set.market}. Se usarán las {actions.length} acciones aprobadas.</p>
         {priorityConflicts.length > 0 ? <p role="alert" className="rounded-lg bg-[#FBF5EB] p-3 text-sm">Hay una prioridad escrita que contradice el valor Pᵢ guardado. <Link href="/modulos/formulacion" className="font-semibold underline">Revisar acciones</Link> antes de calcular.</p> : members.some((m) => m.id === actor.memberId && m.is_leader) && <form action={startMdep}><button className={button}>Iniciar comparación</button></form>}</section> : <>
-      <section className={card}><h2 className="text-lg font-semibold text-[#192538]">1. Contexto competitivo</h2>
+      <section id="contexto-competitivo" className={card}><h2 className="text-lg font-semibold text-[#192538]">1. Contexto competitivo</h2>
         <p className="mt-2 text-sm">Registra solo datos disponibles sobre rivalidad, nuevos entrantes, clientes, proveedores y sustitutos. Señala [FALTA] cuando no haya información suficiente; una objeción material debe quedar visible en la deliberación.</p>
-        <form action={saveMdepContext} className="mt-3 space-y-2"><input type="hidden" name="assessment_id" value={mdep.id}/><input type="hidden" name="revision" value={mdep.revision}/>
-          <textarea name="competitive_context" defaultValue={mdep.competitive_context} className={input} rows={4} minLength={20} maxLength={3000} required disabled={!canEdit}/>
-          {canEdit && <button className={button}>Guardar contexto</button>}</form></section>
+        {contextRecorded && <><p className="mt-3 rounded-lg bg-[#EAF3EC] p-3 text-sm text-[#31523B]">Contexto registrado · {mdep.status === "approved" ? "incluido en la MDEP aprobada" : "pendiente de revisión final MDEP"}.</p>
+          <p className="mt-3 whitespace-pre-wrap text-sm leading-6">{mdep.competitive_context}</p></>}
+        {canEdit && (contextRecorded ? <details className="mt-3 rounded-lg border border-[#C9C5BF] p-3"><summary className="cursor-pointer text-sm font-semibold text-[#192538]">Editar contexto</summary><form action={saveMdepContext} className="mt-3 space-y-2"><input type="hidden" name="assessment_id" value={mdep.id}/><input type="hidden" name="revision" value={mdep.revision}/>
+          <textarea name="competitive_context" defaultValue={mdep.competitive_context} className={input} rows={4} minLength={20} maxLength={3000} required/><button className={button}>Guardar cambios</button></form></details> :
+          <form action={saveMdepContext} className="mt-3 space-y-2"><input type="hidden" name="assessment_id" value={mdep.id}/><input type="hidden" name="revision" value={mdep.revision}/>
+            <textarea name="competitive_context" className={input} rows={4} minLength={20} maxLength={3000} required placeholder="Datos competitivos disponibles y vacíos de evidencia"/><button className={button}>Guardar contexto</button></form>)}
+        {!contextRecorded && !canEdit && <p className="mt-3 text-sm text-[#5A626F]">[FALTA] Contexto competitivo pendiente.</p>}</section>
       <section className={card}><h2 className="text-lg font-semibold text-[#192538]">2. Afinidad de cada acción</h2>
         <p className="mt-2 text-sm text-[#5A626F]">0 sin relación · 1 indirecta · 2 significativa · 3 directa. La nota no mide viabilidad. Toda acción aprobada entra en el denominador, incluso con afinidad 0.</p>
         <div className="mt-4 space-y-3">{actions.map((action, index) => <details key={action.id} id={`accion-${action.id}`} open={query.suggested === action.id || query.saved === action.id || query.action === action.id} className="rounded-xl border p-4"><summary className="cursor-pointer text-sm font-semibold text-[#192538]">A{String(index+1).padStart(2,"0")} · Pᵢ {action.priority} · {action.statement}</summary>
@@ -113,24 +125,38 @@ export async function MdepPage({ searchParams }: { searchParams: Promise<{ error
         <div className="mt-4 grid gap-3 lg:grid-cols-3">{DIRECTIONS.map((direction) => <DirectionBriefForm key={direction} mdep={mdep} direction={direction}
           current={briefs.find((b) => b.direction === direction)} actions={actions} affinities={affinities}
           factorMap={new Map(source?.data.factors.map((f) => [f.id, { code: f.code, axis: f.axis, description: f.description }]) ?? [])}
-          canEdit={Boolean(canEdit)}/>)}</div></section>
-      <section className={card}><h2 className="text-lg font-semibold text-[#192538]">5. Si se considera enfoque</h2>
+          canEdit={Boolean(canEdit)} recentlySaved={query.brief === direction}/>)}</div></section>
+      <section id="enfoque-segmento" className={card}><h2 className="text-lg font-semibold text-[#192538]">5. Si se considera enfoque</h2>
         <p className="mt-2 text-sm">Compara costes y diferenciación **dentro del segmento**. Los puntajes generales de esas direcciones no se reutilizan.</p>
         <p className="mt-2 text-sm">Viabilidad específica: costes {displayScore(segmentScores.costes)} · diferenciación {displayScore(segmentScores.diferenciacion)}. Son apoyos para deliberar, no una selección automática.</p>
         <div className="mt-3 grid gap-3 xl:grid-cols-2">{(["costes", "diferenciacion"] as const).map((direction) => <details key={direction} open={query.criterion?.startsWith(`segment-${direction}-`) || undefined} className="rounded-xl border p-3"><summary className="cursor-pointer font-semibold">En el segmento: {DIRECTION_LABELS[direction]}</summary>
           {CRITERIA[direction].map((criterion) => <CriterionForm key={criterion.key} mdep={mdep} direction={direction} criterion={criterion}
             current={criteria.find((c) => c.scope === "segment" && c.direction === direction && c.criterion_key === criterion.key)} canEdit={Boolean(canEdit)} scope="segment" recentlySaved={query.criterion === `segment-${direction}-${criterion.key}`}/>)}</details>)}</div>
-        <form action={saveFocusDetail} className="mt-4 space-y-2"><input type="hidden" name="assessment_id" value={mdep.id}/><input type="hidden" name="revision" value={mdep.revision}/>
-          <label className="block text-sm">Segmento delimitado<textarea name="segment" defaultValue={mdep.focus_segment ?? ""} className={input} minLength={10} maxLength={800} required disabled={!canEdit}/></label>
-          <label className="block text-sm">Ventaja considerada<select name="advantage" defaultValue={mdep.focus_advantage ?? ""} className={input} disabled={!canEdit}><option value="">Pendiente</option><option value="costes">Costes en el segmento</option><option value="diferenciacion">Diferenciación en el segmento</option></select></label>
-          <label className="block text-sm">Necesidades atendidas, actividades adaptadas y exclusiones<textarea name="exclusions" defaultValue={mdep.focus_exclusions ?? ""} className={input} minLength={10} maxLength={800} required disabled={!canEdit}/></label>
-          {canEdit && <button className={button}>Guardar enfoque</button>}</form></section>
-      <section className={card}><h2 className="text-lg font-semibold text-[#192538]">6. Deliberación, revisión y decisión</h2>
+        {focusRecorded && <div className="mt-4 space-y-2 text-sm"><p className="rounded-lg bg-[#EAF3EC] p-3 text-[#31523B]">Enfoque del segmento registrado · {mdep.status === "approved" ? "incluido en la MDEP aprobada" : "pendiente de revisión final MDEP"}.</p>
+          <p><strong>Segmento delimitado:</strong> {mdep.focus_segment}</p><p><strong>Ventaja considerada:</strong> {mdep.focus_advantage === "costes" ? "Costes en el segmento" : "Diferenciación en el segmento"}</p>
+          <p className="whitespace-pre-wrap"><strong>Necesidades, actividades y exclusiones:</strong> {mdep.focus_exclusions}</p></div>}
+        {canEdit && (focusRecorded ? <details className="mt-4 rounded-lg border border-[#C9C5BF] p-3"><summary className="cursor-pointer text-sm font-semibold text-[#192538]">Editar enfoque</summary>
+          <form action={saveFocusDetail} className="mt-3 space-y-2"><input type="hidden" name="assessment_id" value={mdep.id}/><input type="hidden" name="revision" value={mdep.revision}/>
+            <label className="block text-sm">Segmento delimitado<textarea name="segment" defaultValue={mdep.focus_segment ?? ""} className={input} minLength={10} maxLength={800} required/></label>
+            <label className="block text-sm">Ventaja considerada<select name="advantage" defaultValue={mdep.focus_advantage ?? ""} className={input} required><option value="">Pendiente</option><option value="costes">Costes en el segmento</option><option value="diferenciacion">Diferenciación en el segmento</option></select></label>
+            <label className="block text-sm">Necesidades atendidas, actividades adaptadas y exclusiones<textarea name="exclusions" defaultValue={mdep.focus_exclusions ?? ""} className={input} minLength={10} maxLength={800} required/></label>
+            <button className={button}>Guardar cambios</button></form></details> :
+          <form action={saveFocusDetail} className="mt-4 space-y-2"><input type="hidden" name="assessment_id" value={mdep.id}/><input type="hidden" name="revision" value={mdep.revision}/>
+            <label className="block text-sm">Segmento delimitado<textarea name="segment" defaultValue={mdep.focus_segment ?? ""} className={input} minLength={10} maxLength={800} required/></label>
+            <label className="block text-sm">Ventaja considerada<select name="advantage" defaultValue={mdep.focus_advantage ?? ""} className={input} required><option value="">Pendiente</option><option value="costes">Costes en el segmento</option><option value="diferenciacion">Diferenciación en el segmento</option></select></label>
+            <label className="block text-sm">Necesidades atendidas, actividades adaptadas y exclusiones<textarea name="exclusions" defaultValue={mdep.focus_exclusions ?? ""} className={input} minLength={10} maxLength={800} required/></label>
+            <button className={button}>Guardar enfoque</button></form>)}
+        {!focusRecorded && !canEdit && <p className="mt-4 text-sm text-[#5A626F]">[FALTA] Enfoque del segmento pendiente.</p>}</section>
+      <section id="deliberacion" className={card}><h2 className="text-lg font-semibold text-[#192538]">6. Deliberación, revisión y decisión</h2>
         <p className="mt-2 text-sm">{votes.length} participaciones · mínimo 3, incluido el máximo director. {voteState.ready ? "Quórum alcanzado." : "Quórum pendiente."}</p>
         {votes.map((v) => <p key={v.id} className="mt-1 text-xs text-[#5A626F]">{members.find((m) => m.id === v.member_id)?.display_name ?? "Miembro"}: {DIRECTION_LABELS[v.direction]} · {v.rationale}</p>)}
         {review && <p className="mt-3 rounded-lg bg-[#FAF8F4] p-3 text-sm">Consultor: {review.status} · {review.rationale}</p>}
-        {canEdit && allComplete && !votes.some((v) => v.member_id === actor.memberId) && <form action={voteMdep} className="mt-4 space-y-2"><input type="hidden" name="assessment_id" value={mdep.id}/><input type="hidden" name="revision" value={mdep.revision}/>
-          <label className="block text-sm">Dirección que propones<select name="direction" className={input}>{results.filter((r) => r.eligible).map((r) => <option key={r.direction} value={r.direction}>{DIRECTION_LABELS[r.direction]}</option>)}</select></label>
+        {canEdit && !allComplete && <p className="mt-4 rounded-lg bg-[#FBF5EB] p-3 text-sm">La deliberación se habilitará cuando estén completos el contexto, las afinidades, los 12 criterios, las tres condiciones obligatorias y las tres fichas estratégicas.</p>}
+        {canEdit && allComplete && eligibleResults.length === 0 && <div className="mt-4 rounded-lg bg-[#FBF5EB] p-3 text-sm"><p className="font-semibold">Todavía no hay una dirección elegible para registrar una propuesta.</p>
+          <p className="mt-1">Una puntuación MDEP no elimina el bloqueo de una condición obligatoria. Revisa la evidencia de cada condición antes de deliberar.</p>
+          <ul className="mt-2 list-disc pl-5">{results.map((r) => <li key={r.direction}>{DIRECTION_LABELS[r.direction]}: {r.status}</li>)}</ul></div>}
+        {canEdit && allComplete && eligibleResults.length > 0 && !votes.some((v) => v.member_id === actor.memberId) && <form action={voteMdep} className="mt-4 space-y-2"><input type="hidden" name="assessment_id" value={mdep.id}/><input type="hidden" name="revision" value={mdep.revision}/>
+          <label className="block text-sm">Dirección que propones<select name="direction" className={input} defaultValue="" required><option value="">Selecciona una dirección elegible</option>{eligibleResults.map((r) => <option key={r.direction} value={r.direction}>{DIRECTION_LABELS[r.direction]}</option>)}</select></label>
           <label className="block text-sm">Justificación<textarea name="rationale" className={input} minLength={10} maxLength={1500} required/></label><button className={button}>Registrar deliberación</button></form>}
         {actor.role === "consultant" && allComplete && voteState.ready && !review && <form action={reviewMdep} className="mt-4 space-y-2"><input type="hidden" name="assessment_id" value={mdep.id}/><input type="hidden" name="revision" value={mdep.revision}/>
           <p className="text-sm">Revisa prioridades, afinidades, fuentes, contradicciones y condiciones obligatorias.</p><select name="decision" className={input}><option value="approved">Aprobar revisión</option><option value="changes_requested">Solicitar cambios</option></select>
@@ -197,21 +223,23 @@ function ConditionForm({ mdep, direction, current, canEdit, recentlySaved=false 
   </details>;
 }
 
-function DirectionBriefForm({ mdep, direction, current, actions, affinities, factorMap, canEdit }: {
+function DirectionBriefForm({ mdep, direction, current, actions, affinities, factorMap, canEdit, recentlySaved=false }: {
   mdep: MdepAssessment; direction: Direction; current?: DirectionBrief; actions: StrategicAction[]; affinities: Affinity[];
-  factorMap: Map<string, { code: string; axis: string; description: string }>; canEdit: boolean;
+  factorMap: Map<string, { code: string; axis: string; description: string }>; canEdit: boolean; recentlySaved?: boolean;
 }) {
   const related = actions.map((action) => ({ action, affinity: affinities.find((a) => a.action_id === action.id && a.direction === direction) }))
     .filter((x) => x.affinity && x.affinity.score > 0);
   const factorIds = [...new Set(related.flatMap(({ action }) => parse(action.factor_ids_json)))];
-  return <details className="rounded-xl border p-4"><summary className="cursor-pointer font-semibold">{DIRECTION_LABELS[direction]} · {current ? "ficha registrada" : "ficha pendiente"}</summary>
+  const editor = canEdit && <form action={saveMdepDirectionBrief} className="mt-3 space-y-2"><input type="hidden" name="assessment_id" value={mdep.id}/><input type="hidden" name="revision" value={mdep.revision}/><input type="hidden" name="direction" value={direction}/>
+    {([['advantages','Ventajas'],['risks','Riesgos'],['required_capabilities','Capacidades necesarias'],['operational_implications','Implicaciones operativas'],['market_coherence','Coherencia entre ventaja, mercado y actividades']] as const).map(([name,label]) =>
+      <label key={name} className="block text-xs">{label}<textarea name={name} defaultValue={current?.[name] ?? ""} className={input} minLength={10} maxLength={1500} required/></label>)}
+    <button className={button}>{current ? "Guardar cambios" : "Guardar ficha"}</button></form>;
+  return <details id={`ficha-${direction}`} open={recentlySaved || undefined} className="rounded-xl border p-4"><summary className="cursor-pointer font-semibold">{DIRECTION_LABELS[direction]} · {current ? "Ficha registrada" : "Ficha pendiente"}</summary>
     <p className="mt-2 text-xs text-[#5A626F]">Acciones que aportan: {related.length ? related.map(({ action }) => action.statement).join("; ") : "[FALTA]"}</p>
     <div className="mt-2 space-y-1 text-xs">{["F","D","O","A"].map((axis) => <p key={axis}><strong>{axis}:</strong> {factorIds.map((id) => factorMap.get(id)).filter((f) => f?.axis === axis).map((f) => `${f?.code} ${f?.description}`).join("; ") || "[FALTA]"}</p>)}</div>
     <p className="mt-2 text-xs">Evidencias vinculadas: {related.flatMap(({ affinity }) => parse(affinity?.evidence_ids_json ?? "[]")).length}</p>
-    {current && <div className="mt-2 space-y-1 text-xs"><p><strong>Ventajas:</strong> {current.advantages}</p><p><strong>Riesgos:</strong> {current.risks}</p><p><strong>Capacidades:</strong> {current.required_capabilities}</p><p><strong>Operación:</strong> {current.operational_implications}</p><p><strong>Coherencia:</strong> {current.market_coherence}</p></div>}
-    {canEdit && <form action={saveMdepDirectionBrief} className="mt-3 space-y-2"><input type="hidden" name="assessment_id" value={mdep.id}/><input type="hidden" name="revision" value={mdep.revision}/><input type="hidden" name="direction" value={direction}/>
-      {([['advantages','Ventajas'],['risks','Riesgos'],['required_capabilities','Capacidades necesarias'],['operational_implications','Implicaciones operativas'],['market_coherence','Coherencia entre ventaja, mercado y actividades']] as const).map(([name,label]) =>
-        <label key={name} className="block text-xs">{label}<textarea name={name} defaultValue={current?.[name] ?? ""} className={input} minLength={10} maxLength={1500} required/></label>)}
-      <button className={button}>Guardar ficha</button></form>}
+    {current && <><p className="mt-3 rounded bg-[#EAF3EC] p-2 text-xs text-[#31523B]">Ficha registrada · {mdep.status === "approved" ? "incluida en la MDEP aprobada" : "pendiente de revisión final MDEP"}.</p>
+      <div className="mt-2 space-y-1 text-xs"><p><strong>Ventajas:</strong> {current.advantages}</p><p><strong>Riesgos:</strong> {current.risks}</p><p><strong>Capacidades:</strong> {current.required_capabilities}</p><p><strong>Operación:</strong> {current.operational_implications}</p><p><strong>Coherencia:</strong> {current.market_coherence}</p></div></>}
+    {current && canEdit ? <details className="mt-3 rounded-lg border border-[#C9C5BF] bg-white p-2"><summary className="cursor-pointer text-xs font-semibold text-[#192538]">Editar ficha</summary>{editor}</details> : editor}
   </details>;
 }

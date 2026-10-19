@@ -416,7 +416,7 @@ export async function saveMdepDirectionBrief(form: FormData) {
     audit(db, actor, cycle.id, "mdep.direction_brief_saved", "mdep_assessment", mdep.id,
       { direction, values, previous: previous ?? null, revision: mdep.revision + 1 }),
   ]);
-  refresh(); redirect(`${porterPath}?saved=1`);
+  refresh(); redirect(`${porterPath}?saved=brief&brief=${encodeURIComponent(direction)}#ficha-${encodeURIComponent(direction)}`);
 }
 
 export async function saveMdepContext(form: FormData) {
@@ -433,7 +433,7 @@ export async function saveMdepContext(form: FormData) {
     audit(db, actor, cycle.id, "mdep.context_saved", "mdep_assessment", mdep.id,
       { context: narrative, previous: mdep.competitive_context, revision: mdep.revision + 1 }),
   ]);
-  refresh(); redirect(`${porterPath}?saved=1`);
+  refresh(); redirect(`${porterPath}?saved=context#contexto-competitivo`);
 }
 
 export async function saveFocusDetail(form: FormData) {
@@ -453,7 +453,7 @@ export async function saveFocusDetail(form: FormData) {
       { segment, advantage, exclusions, previous: { segment: mdep.focus_segment, advantage: mdep.focus_advantage,
         exclusions: mdep.focus_exclusions }, revision: mdep.revision + 1 }),
   ]);
-  refresh(); redirect(`${porterPath}?saved=1`);
+  refresh(); redirect(`${porterPath}?saved=focus#enfoque-segmento`);
 }
 
 async function assessmentComplete(mdep: MdepAssessment, actionSetId: string) {
@@ -476,9 +476,11 @@ export async function voteMdep(form: FormData) {
   const mdep = await editableMdep(set.id, field(form, "assessment_id"), Number(field(form, "revision")));
   const { results, complete } = await assessmentComplete(mdep, set.id);
   const direction = field(form, "direction") as Direction, rationale = field(form, "rationale");
-  if (!complete || !DIRECTIONS.includes(direction) || !results.find((r) => r.direction === direction)?.eligible ||
-    rationale.length < 10 || rationale.length > 1500) redirect(`${porterPath}?error=vote`);
-  if ((await getMdepVotes(mdep.id, mdep.revision)).some((v) => v.member_id === actor.memberId)) redirect(`${porterPath}?error=voted`);
+  if (!complete) redirect(`${porterPath}?error=vote_incomplete#deliberacion`);
+  if (!DIRECTIONS.includes(direction) || !results.find((r) => r.direction === direction)?.eligible)
+    redirect(`${porterPath}?error=vote_blocked#deliberacion`);
+  if (rationale.length < 10 || rationale.length > 1500) redirect(`${porterPath}?error=vote_rationale#deliberacion`);
+  if ((await getMdepVotes(mdep.id, mdep.revision)).some((v) => v.member_id === actor.memberId)) redirect(`${porterPath}?error=voted#deliberacion`);
   const id = crypto.randomUUID();
   await db.batch([
     db.prepare("INSERT INTO mdep_votes (id, assessment_id, assessment_revision, member_id, direction, rationale) VALUES (?, ?, ?, ?, ?, ?)")
@@ -486,7 +488,7 @@ export async function voteMdep(form: FormData) {
     audit(db, actor, cycle.id, "mdep.voted", "mdep_assessment", mdep.id,
       { voteId: id, direction, rationale, revision: mdep.revision }),
   ]);
-  refresh(); redirect(`${porterPath}?voted=1`);
+  refresh(); redirect(`${porterPath}?voted=1#deliberacion`);
 }
 
 export async function reviewMdep(form: FormData) {
