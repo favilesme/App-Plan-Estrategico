@@ -7,6 +7,7 @@ import { getD1 } from "@/db";
 import { actionPriorityConflict } from "@/lib/action-priority";
 import { getActor } from "@/lib/authz";
 import { matrixVoteState } from "@/lib/foda-matrix";
+import { readableEvidenceRationale } from "@/lib/mdep-affinity-draft";
 import { METHODOLOGY_VERSION } from "@/lib/methodology";
 import { DIRECTIONS, CRITERIA, directionResult, viabilityScore, type Direction, type StrategicQuadrant } from "@/lib/mdep";
 import { isHighLevelMember } from "@/lib/sprint2";
@@ -292,6 +293,10 @@ export async function suggestMdepAffinities(form: FormData) {
   const evidence = selected.flatMap((f) => f.evidence.filter((e) => evidenceIds.includes(e.id))
     .map((e) => ({ id: e.id, factor: f.code, statement: e.statement, source_type: e.source_type,
       source_detail: e.source_detail, period: e.period })));
+  const evidenceForModel = evidence.map((item, index) => ({ ref: `E${index + 1}`, factor: item.factor,
+    statement: item.statement, source_type: item.source_type, source_detail: item.source_detail, period: item.period }));
+  const aliasToId = new Map(evidenceForModel.map((item, index) => [item.ref, evidence[index].id]));
+  const evidenceById = new Map(evidence.map((item) => [item.id, { factorCode: item.factor, statement: item.statement }]));
   const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 25000);
   let suggestions: Array<{ direction: Direction; score: number; rationale: string; evidence_ids: string[] }>;
   try {
@@ -299,10 +304,10 @@ export async function suggestMdepAffinities(form: FormData) {
       method: "POST", signal: controller.signal,
       headers: { Authorization: `Bearer ${env.OPENAI_API_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({ model: "gpt-4.1-mini", store: false, max_output_tokens: 950,
-        instructions: "Eres asistente metodológico de Anima Praxis. Sugiere un borrador de afinidad por separado para costes, diferenciación y enfoque. Escala 0 sin relación, 1 indirecta, 2 significativa, 3 directa. No midas viabilidad ni inventes hechos. Usa solo IDs de evidencia proporcionados. El Equipo de Alto Nivel decide y el consultor revisa.",
+        instructions: "Eres asistente metodológico de Anima Praxis. Sugiere un borrador de afinidad por separado para costes, diferenciación y enfoque. Escala 0 sin relación, 1 indirecta, 2 significativa, 3 directa. No midas viabilidad ni inventes hechos. En evidence_ids usa solo referencias E1, E2, etc. En rationale cita el código de factor y el nombre de la evidencia; nunca incluyas referencias E1/E2 ni identificadores internos. El Equipo de Alto Nivel decide y el consultor revisa.",
         input: JSON.stringify({ action: { quadrant: action.quadrant, statement: action.statement,
           expected_effect: action.expected_effect, priority: action.priority },
-          factors: selected.map((f) => ({ code: f.code, description: f.description })), evidence }),
+          factors: selected.map((f) => ({ code: f.code, description: f.description })), evidence: evidenceForModel }),
         text: { format: { type: "json_schema", name: "mdep_affinity_draft", strict: true,
           schema: { type: "object", additionalProperties: false, required: ["suggestions"],
             properties: { suggestions: { type: "array", items: { type: "object", additionalProperties: false,
@@ -317,12 +322,17 @@ export async function suggestMdepAffinities(form: FormData) {
     const text = payload.output?.flatMap((o) => o.content ?? []).find((x) => x.type === "output_text")?.text;
     if (!text) throw new Error("response_empty");
     suggestions = (JSON.parse(text) as { suggestions: typeof suggestions }).suggestions;
-    const allowed = new Set(evidence.map((e) => e.id));
+    const allowed = new Set(aliasToId.keys());
     if (!Array.isArray(suggestions) || suggestions.length !== 3 ||
       new Set(suggestions.map((s) => s.direction)).size !== 3 ||
       suggestions.some((s) => !DIRECTIONS.includes(s.direction) || !Number.isInteger(s.score) || s.score < 0 || s.score > 3 ||
         s.rationale.trim().length < 10 || s.rationale.length > 1000 || !Array.isArray(s.evidence_ids) ||
         !s.evidence_ids.length || s.evidence_ids.some((id) => !allowed.has(id)))) throw new Error("response_invalid");
+    suggestions = suggestions.map((item) => ({ ...item,
+      rationale: readableEvidenceRationale(item.rationale, evidenceById, aliasToId),
+      evidence_ids: item.evidence_ids.map((ref) => aliasToId.get(ref)!),
+    }));
+    if (suggestions.some((item) => item.rationale.length > 1000)) throw new Error("response_invalid");
   } catch (error) {
     const reason = error instanceof Error ? error.message : "unknown";
     const category = reason.startsWith("service_") ? "ai_service" :

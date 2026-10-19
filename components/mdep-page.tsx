@@ -8,7 +8,7 @@ import { AccessNotice } from "@/components/access-notice";
 import { AppShell } from "@/components/app-shell";
 import { canRead, getActor } from "@/lib/authz";
 import { matrixVoteState } from "@/lib/foda-matrix";
-import { parseAffinitySuggestions } from "@/lib/mdep-affinity-draft";
+import { parseAffinitySuggestions, readableEvidenceRationale } from "@/lib/mdep-affinity-draft";
 import { CRITERIA, DIRECTIONS, DIRECTION_LABELS, directionResult, displayScore, mdepRecommendation,
   viabilityScore, type Direction } from "@/lib/mdep";
 import { getFodaSet } from "@/lib/sprint3";
@@ -151,7 +151,7 @@ function AffinityForm({ mdep, action, direction, current, draft, evidenceById, c
   const evidence = parse(action.evidence_ids_json), selected = parse(current?.evidence_ids_json ?? "[]");
   const editor = canEdit && <form key={JSON.stringify([current?.version, draft])} action={saveMdepAffinity} className="mt-2 space-y-2"><input type="hidden" name="assessment_id" value={mdep.id}/><input type="hidden" name="revision" value={mdep.revision}/><input type="hidden" name="action_id" value={action.id}/><input type="hidden" name="direction" value={direction}/>
       <select name="score" className={input} defaultValue={current?.score ?? draft?.score ?? ""} required><option value="">[FALTA]</option>{[0,1,2,3].map((v) => <option key={v} value={v}>{v}</option>)}</select>
-      <textarea name="rationale" className={input} defaultValue={current?.rationale ?? draft?.rationale ?? ""} minLength={10} maxLength={1000} required placeholder="Relación de la acción con esta dirección"/>
+      <textarea name="rationale" className={input} defaultValue={readableEvidenceRationale(current?.rationale ?? draft?.rationale ?? "", evidenceById)} minLength={10} maxLength={1000} required placeholder="Relación de la acción con esta dirección"/>
       <fieldset><legend className="font-semibold">Evidencias de la acción</legend><div className="mt-1 space-y-2">{evidence.map((id) => {
         const item = evidenceById.get(id);
         return <label key={id} className="flex items-start gap-2 rounded-lg border border-[#E6DFD6] bg-white p-2 text-xs leading-5">
@@ -161,8 +161,8 @@ function AffinityForm({ mdep, action, direction, current, draft, evidenceById, c
       })}</div></fieldset>
       <button className={button}>{current ? "Guardar cambios" : "Guardar afinidad"}</button></form>;
   return <div className="rounded-lg bg-[#FAF8F4] p-3 text-xs"><h4 className="font-semibold">{DIRECTION_LABELS[direction]} · {current ? `Guardada: ${current.score}/3` : "[FALTA]"}</h4>
-    {current ? <><p className="mt-1 rounded bg-[#EAF3EC] p-2 text-[#31523B]">Valoración registrada · {mdep.status === "approved" ? "incluida en la MDEP aprobada" : "pendiente de revisión final MDEP"}.</p><p className="mt-2">{current.rationale}</p><p className="mt-1 text-[#5A626F]">Evidencias vinculadas: {selected.length}</p></> :
-      draft && <p className="mt-2 rounded bg-[#FBF5EB] p-2">Borrador IA: {draft.score} · {draft.rationale}</p>}
+    {current ? <><p className="mt-1 rounded bg-[#EAF3EC] p-2 text-[#31523B]">Valoración registrada · {mdep.status === "approved" ? "incluida en la MDEP aprobada" : "pendiente de revisión final MDEP"}.</p><p className="mt-2">{readableEvidenceRationale(current.rationale, evidenceById)}</p><p className="mt-1 text-[#5A626F]">Evidencias vinculadas: {selected.length}</p></> :
+      draft && <p className="mt-2 rounded bg-[#FBF5EB] p-2">Borrador IA: {draft.score} · {readableEvidenceRationale(draft.rationale, evidenceById)}</p>}
     {current && canEdit ? <details className="mt-3 rounded-lg border border-[#C9C5BF] bg-white p-2"><summary className="cursor-pointer font-semibold text-[#192538]">Editar afinidad</summary>{editor}</details> : editor}
   </div>;
 }
