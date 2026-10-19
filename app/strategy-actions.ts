@@ -331,7 +331,7 @@ export async function suggestMdepAffinities(form: FormData) {
     audit(db, actor, cycle.id, "mdep.ai_draft_created", "mdep_assessment", mdep.id,
       { actionId: action.id, suggestions, model: "gpt-4.1-mini", provisional: true, revision: mdep.revision + 1 }),
   ]);
-  refresh(); redirect(`${porterPath}?suggested=1`);
+  refresh(); redirect(`${porterPath}?suggested=${encodeURIComponent(action.id)}#accion-${encodeURIComponent(action.id)}`);
 }
 
 export async function saveMdepCriterion(form: FormData) {
