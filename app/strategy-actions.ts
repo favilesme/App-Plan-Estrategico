@@ -394,7 +394,7 @@ export async function saveMdepCondition(form: FormData) {
     audit(db, actor, cycle.id, "mdep.condition_saved", "mdep_assessment", mdep.id,
       { direction, status, rationale, source, previous: previous ?? null, revision: mdep.revision + 1 }),
   ]);
-  refresh(); redirect(`${porterPath}?saved=1`);
+  refresh(); redirect(`${porterPath}?saved=condition&condition=${encodeURIComponent(direction)}#condicion-${encodeURIComponent(direction)}`);
 }
 
 export async function saveMdepDirectionBrief(form: FormData) {
