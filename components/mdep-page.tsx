@@ -32,7 +32,7 @@ const porterErrors: Record<string, string> = {
   stale: "La valoración cambió en otra sesión. Actualiza la página y revisa los datos antes de guardar.",
 };
 
-export async function MdepPage({ searchParams }: { searchParams: Promise<{ error?: string; saved?: string; approved?: string; suggested?: string }> }) {
+export async function MdepPage({ searchParams }: { searchParams: Promise<{ error?: string; saved?: string; approved?: string; suggested?: string; action?: string }> }) {
   const query = await searchParams;
   const actor = await getActor();
   if (!actor) redirect(chatGPTSignInPath("/modulos/porter"));
@@ -77,7 +77,7 @@ export async function MdepPage({ searchParams }: { searchParams: Promise<{ error
       <h1 className="mt-2 font-serif text-3xl text-[#192538]">Dirección competitiva</h1>
       <p className="mt-3 max-w-3xl text-sm leading-6 text-[#5A626F]">Compara costes, diferenciación y enfoque con la metodología experimental de Anima Praxis. Las categorías competitivas vienen de Porter; las escalas, el 60/40 y los umbrales son del piloto. Toda recomendación requiere evidencia y decisión del cliente.</p></header>
     {query.error && <p role="alert" className="rounded-lg bg-[#FBF0EA] p-3 text-sm text-[#7E3527]">{porterErrors[query.error] ?? `No se completó la operación (${query.error}). Revisa la información y la versión de trabajo.`}</p>}
-    {query.saved && <p role="status" className="rounded-lg bg-[#EAF3EC] p-3 text-sm text-[#31523B]">Afinidad guardada. La valoración permanece pendiente de la revisión final MDEP.</p>}
+    {query.saved && <p role="status" className="rounded-lg bg-[#EAF3EC] p-3 text-sm text-[#31523B]">{actions.some((a) => a.id === query.saved) ? "Afinidad guardada. La valoración permanece pendiente de la revisión final MDEP." : "Valoración guardada con trazabilidad."}</p>}
     {query.suggested && <p role="status" className="rounded-lg bg-[#FBF5EB] p-3 text-sm text-[#192538]">Borrador de IA generado para la acción indicada. Revisa y guarda cada afinidad para convertirla en valoración del equipo.</p>}
     {query.approved && <p role="status" className="text-sm text-[#31523B]">Dirección estratégica aprobada por Dirección.</p>}
     {!set || set.status !== "approved" ? <section className={card}><h2 className="font-semibold">Acciones pendientes</h2><p className="mt-2 text-sm">La lista de acciones y prioridades debe estar aprobada antes de calcular la MDEP.</p><Link href="/modulos/formulacion" className="mt-3 inline-block text-sm underline">Abrir formulación</Link></section> : !mdep ?
@@ -90,7 +90,7 @@ export async function MdepPage({ searchParams }: { searchParams: Promise<{ error
           {canEdit && <button className={button}>Guardar contexto</button>}</form></section>
       <section className={card}><h2 className="text-lg font-semibold text-[#192538]">2. Afinidad de cada acción</h2>
         <p className="mt-2 text-sm text-[#5A626F]">0 sin relación · 1 indirecta · 2 significativa · 3 directa. La nota no mide viabilidad. Toda acción aprobada entra en el denominador, incluso con afinidad 0.</p>
-        <div className="mt-4 space-y-3">{actions.map((action, index) => <details key={action.id} id={`accion-${action.id}`} open={query.suggested === action.id || query.saved === action.id} className="rounded-xl border p-4"><summary className="cursor-pointer text-sm font-semibold text-[#192538]">A{String(index+1).padStart(2,"0")} · Pᵢ {action.priority} · {action.statement}</summary>
+        <div className="mt-4 space-y-3">{actions.map((action, index) => <details key={action.id} id={`accion-${action.id}`} open={query.suggested === action.id || query.saved === action.id || query.action === action.id} className="rounded-xl border p-4"><summary className="cursor-pointer text-sm font-semibold text-[#192538]">A{String(index+1).padStart(2,"0")} · Pᵢ {action.priority} · {action.statement}</summary>
           <p className="mt-2 text-xs">{action.quadrant} · {action.expected_effect} · Factores {parse(action.factor_ids_json).length} · Evidencias {parse(action.evidence_ids_json).length}</p>
           {canEdit && <form action={suggestMdepAffinities} className="mt-3"><input type="hidden" name="assessment_id" value={mdep.id}/><input type="hidden" name="revision" value={mdep.revision}/><input type="hidden" name="action_id" value={action.id}/><button className={button}>{drafts.some((d) => d.action_id === action.id) ? "Regenerar borrador de IA" : "Generar borrador de afinidades con IA"}</button><p className="mt-1 text-xs text-[#5A626F]">El borrador no modifica las afinidades guardadas.</p></form>}
           <div className="mt-3 grid gap-3 lg:grid-cols-3">{DIRECTIONS.map((direction) => <AffinityForm key={direction} mdep={mdep} action={action} direction={direction}

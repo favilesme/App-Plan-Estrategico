@@ -329,7 +329,7 @@ export async function suggestMdepAffinities(form: FormData) {
       reason === "response_empty" || reason === "response_invalid" || error instanceof SyntaxError ? "ai_response" :
       error instanceof Error && error.name === "AbortError" ? "ai_timeout" : "ai";
     console.error("mdep_affinity_ai_draft_failed", { category, reason: reason.startsWith("service_") ? reason : category });
-    redirect(`${porterPath}?error=${category}`);
+    redirect(`${porterPath}?error=${category}&action=${encodeURIComponent(action.id)}#accion-${encodeURIComponent(action.id)}`);
   } finally { clearTimeout(timer); }
   await bumpMdep(mdep);
   await db.batch([
