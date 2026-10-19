@@ -42,6 +42,11 @@ export async function MdepPage({ searchParams }: { searchParams: Promise<{ error
     mdep ? getMdepVotes(mdep.id, mdep.revision) : Promise.resolve([]), org ? getMembers(org.id) : Promise.resolve([]),
   ]);
   const priorityConflicts = actions.filter(actionPriorityConflict);
+  const evidenceById = new Map(source?.data.factors.flatMap((factor) =>
+    factor.evidence.map((item) => [item.id, {
+      factorCode: factor.code, statement: item.statement,
+      sourceDetail: item.source_detail, period: item.period,
+    }] as const)) ?? []);
   const results = DIRECTIONS.map((d) => directionResult(actions.map((a) => ({ id: a.id, priority: a.priority })),
     affinities.map((a) => ({ action_id: a.action_id, direction: a.direction, score: a.score })),
     criteria.filter((c) => c.scope === "general").map((c) => ({ direction: c.direction, criterion_key: c.criterion_key, score: c.score })),
@@ -80,7 +85,7 @@ export async function MdepPage({ searchParams }: { searchParams: Promise<{ error
           <div className="mt-3 grid gap-3 lg:grid-cols-3">{DIRECTIONS.map((direction) => <AffinityForm key={direction} mdep={mdep} action={action} direction={direction}
             current={affinities.find((a) => a.action_id === action.id && a.direction === direction)}
             draft={(() => { try { return (JSON.parse(drafts.find((d) => d.action_id === action.id)?.suggestions_json ?? "{}") as { suggestions?: Array<{ direction: Direction; score: number; rationale: string; evidence_ids: string[] }> }).suggestions?.find((s) => s.direction === direction); } catch { return undefined; } })()}
-            canEdit={Boolean(canEdit)}/>)}</div></details>)}</div></section>
+            evidenceById={evidenceById} canEdit={Boolean(canEdit)}/>)}</div></details>)}</div></section>
       <section className={card}><h2 className="text-lg font-semibold text-[#192538]">3. Viabilidad competitiva</h2>
         <p className="mt-2 text-sm text-[#5A626F]">Cada criterio se valora de 0 a 4 con fuente y fundamento. [FALTA] no se registra como cero.</p>
         <div className="mt-4 grid gap-4 xl:grid-cols-3">{DIRECTIONS.map((direction) => <div key={direction} className="rounded-xl border p-4"><h3 className="font-semibold">{DIRECTION_LABELS[direction]}</h3>
@@ -128,8 +133,10 @@ export async function MdepPage({ searchParams }: { searchParams: Promise<{ error
   </main></AppShell>;
 }
 
-function AffinityForm({ mdep, action, direction, current, draft, canEdit }: { mdep: MdepAssessment; action: StrategicAction;
-  direction: Direction; current?: Affinity; draft?: { score: number; rationale: string; evidence_ids: string[] }; canEdit: boolean }) {
+function AffinityForm({ mdep, action, direction, current, draft, evidenceById, canEdit }: { mdep: MdepAssessment; action: StrategicAction;
+  direction: Direction; current?: Affinity; draft?: { score: number; rationale: string; evidence_ids: string[] };
+  evidenceById: ReadonlyMap<string, { factorCode: string; statement: string; sourceDetail: string; period: string }>;
+  canEdit: boolean }) {
   const evidence = parse(action.evidence_ids_json), selected = parse(current?.evidence_ids_json ?? "[]");
   return <div className="rounded-lg bg-[#FAF8F4] p-3 text-xs"><h4 className="font-semibold">{DIRECTION_LABELS[direction]} · {current?.score ?? "[FALTA]"}</h4>
     {current && <p className="mt-1">{current.rationale}</p>}
@@ -137,7 +144,13 @@ function AffinityForm({ mdep, action, direction, current, draft, canEdit }: { md
     {canEdit && <form action={saveMdepAffinity} className="mt-2 space-y-2"><input type="hidden" name="assessment_id" value={mdep.id}/><input type="hidden" name="revision" value={mdep.revision}/><input type="hidden" name="action_id" value={action.id}/><input type="hidden" name="direction" value={direction}/>
       <select name="score" className={input} defaultValue={current?.score ?? draft?.score ?? ""} required><option value="">[FALTA]</option>{[0,1,2,3].map((v) => <option key={v} value={v}>{v}</option>)}</select>
       <textarea name="rationale" className={input} defaultValue={current?.rationale ?? draft?.rationale ?? ""} minLength={10} maxLength={1000} required placeholder="Relación de la acción con esta dirección"/>
-      <fieldset><legend>Evidencias de la acción</legend>{evidence.map((id) => <label key={id} className="block"><input type="checkbox" name="evidence_id" value={id} defaultChecked={selected.includes(id) || (!current && Boolean(draft?.evidence_ids.includes(id)))} className="mr-1"/>{id.slice(0,8)}…</label>)}</fieldset>
+      <fieldset><legend className="font-semibold">Evidencias de la acción</legend><div className="mt-1 space-y-2">{evidence.map((id) => {
+        const item = evidenceById.get(id);
+        return <label key={id} className="flex items-start gap-2 rounded-lg border border-[#E6DFD6] bg-white p-2 text-xs leading-5">
+          <input type="checkbox" name="evidence_id" value={id} defaultChecked={selected.includes(id) || (!current && Boolean(draft?.evidence_ids.includes(id)))} className="mt-1 shrink-0"/>
+          <span className="min-w-0 break-words">{item ? <><span className="font-semibold">{item.factorCode} · {item.statement}</span><span className="block text-[#5A626F]">Fuente: {item.sourceDetail} · Período: {item.period}</span></> : <span className="text-[#933F34]">Evidencia no disponible en la matriz aprobada · referencia {id}</span>}</span>
+        </label>;
+      })}</div></fieldset>
       <button className={button}>Guardar afinidad</button></form>}</div>;
 }
 
