@@ -32,7 +32,7 @@ const porterErrors: Record<string, string> = {
   stale: "La valoración cambió en otra sesión. Actualiza la página y revisa los datos antes de guardar.",
 };
 
-export async function MdepPage({ searchParams }: { searchParams: Promise<{ error?: string; saved?: string; approved?: string; suggested?: string; action?: string }> }) {
+export async function MdepPage({ searchParams }: { searchParams: Promise<{ error?: string; saved?: string; approved?: string; suggested?: string; action?: string; criterion?: string }> }) {
   const query = await searchParams;
   const actor = await getActor();
   if (!actor) redirect(chatGPTSignInPath("/modulos/porter"));
@@ -77,7 +77,7 @@ export async function MdepPage({ searchParams }: { searchParams: Promise<{ error
       <h1 className="mt-2 font-serif text-3xl text-[#192538]">Dirección competitiva</h1>
       <p className="mt-3 max-w-3xl text-sm leading-6 text-[#5A626F]">Compara costes, diferenciación y enfoque con la metodología experimental de Anima Praxis. Las categorías competitivas vienen de Porter; las escalas, el 60/40 y los umbrales son del piloto. Toda recomendación requiere evidencia y decisión del cliente.</p></header>
     {query.error && <p role="alert" className="rounded-lg bg-[#FBF0EA] p-3 text-sm text-[#7E3527]">{porterErrors[query.error] ?? `No se completó la operación (${query.error}). Revisa la información y la versión de trabajo.`}</p>}
-    {query.saved && <p role="status" className="rounded-lg bg-[#EAF3EC] p-3 text-sm text-[#31523B]">{actions.some((a) => a.id === query.saved) ? "Afinidad guardada. La valoración permanece pendiente de la revisión final MDEP." : "Valoración guardada con trazabilidad."}</p>}
+    {query.saved && <p role="status" className="rounded-lg bg-[#EAF3EC] p-3 text-sm text-[#31523B]">{actions.some((a) => a.id === query.saved) ? "Afinidad guardada. La valoración permanece pendiente de la revisión final MDEP." : query.saved === "criterion" ? "Criterio registrado. Puedes revisarlo y abrir Editar criterio si necesitas cambiarlo." : "Valoración guardada con trazabilidad."}</p>}
     {query.suggested && <p role="status" className="rounded-lg bg-[#FBF5EB] p-3 text-sm text-[#192538]">Borrador de IA generado para la acción indicada. Revisa y guarda cada afinidad para convertirla en valoración del equipo.</p>}
     {query.approved && <p role="status" className="text-sm text-[#31523B]">Dirección estratégica aprobada por Dirección.</p>}
     {!set || set.status !== "approved" ? <section className={card}><h2 className="font-semibold">Acciones pendientes</h2><p className="mt-2 text-sm">La lista de acciones y prioridades debe estar aprobada antes de calcular la MDEP.</p><Link href="/modulos/formulacion" className="mt-3 inline-block text-sm underline">Abrir formulación</Link></section> : !mdep ?
@@ -101,7 +101,7 @@ export async function MdepPage({ searchParams }: { searchParams: Promise<{ error
         <p className="mt-2 text-sm text-[#5A626F]">Cada criterio se valora de 0 a 4 con fuente y fundamento. [FALTA] no se registra como cero.</p>
         <div className="mt-4 grid gap-4 xl:grid-cols-3">{DIRECTIONS.map((direction) => <div key={direction} className="rounded-xl border p-4"><h3 className="font-semibold">{DIRECTION_LABELS[direction]}</h3>
           <div className="mt-3 space-y-2">{CRITERIA[direction].map((criterion) => <CriterionForm key={criterion.key} mdep={mdep} direction={direction} criterion={criterion}
-            current={criteria.find((c) => c.scope === "general" && c.direction === direction && c.criterion_key === criterion.key)} canEdit={Boolean(canEdit)}/>)}</div>
+            current={criteria.find((c) => c.scope === "general" && c.direction === direction && c.criterion_key === criterion.key)} canEdit={Boolean(canEdit)} recentlySaved={query.criterion === `general-${direction}-${criterion.key}`}/>)}</div>
           <ConditionForm mdep={mdep} direction={direction} current={conditions.find((c) => c.direction === direction)} canEdit={Boolean(canEdit)}/>
         </div>)}</div></section>
       <section className={card}><h2 className="text-lg font-semibold text-[#192538]">4. Matriz de decisión estratégica</h2>
@@ -117,9 +117,9 @@ export async function MdepPage({ searchParams }: { searchParams: Promise<{ error
       <section className={card}><h2 className="text-lg font-semibold text-[#192538]">5. Si se considera enfoque</h2>
         <p className="mt-2 text-sm">Compara costes y diferenciación **dentro del segmento**. Los puntajes generales de esas direcciones no se reutilizan.</p>
         <p className="mt-2 text-sm">Viabilidad específica: costes {displayScore(segmentScores.costes)} · diferenciación {displayScore(segmentScores.diferenciacion)}. Son apoyos para deliberar, no una selección automática.</p>
-        <div className="mt-3 grid gap-3 xl:grid-cols-2">{(["costes", "diferenciacion"] as const).map((direction) => <details key={direction} className="rounded-xl border p-3"><summary className="cursor-pointer font-semibold">En el segmento: {DIRECTION_LABELS[direction]}</summary>
+        <div className="mt-3 grid gap-3 xl:grid-cols-2">{(["costes", "diferenciacion"] as const).map((direction) => <details key={direction} open={query.criterion?.startsWith(`segment-${direction}-`) || undefined} className="rounded-xl border p-3"><summary className="cursor-pointer font-semibold">En el segmento: {DIRECTION_LABELS[direction]}</summary>
           {CRITERIA[direction].map((criterion) => <CriterionForm key={criterion.key} mdep={mdep} direction={direction} criterion={criterion}
-            current={criteria.find((c) => c.scope === "segment" && c.direction === direction && c.criterion_key === criterion.key)} canEdit={Boolean(canEdit)} scope="segment"/>)}</details>)}</div>
+            current={criteria.find((c) => c.scope === "segment" && c.direction === direction && c.criterion_key === criterion.key)} canEdit={Boolean(canEdit)} scope="segment" recentlySaved={query.criterion === `segment-${direction}-${criterion.key}`}/>)}</details>)}</div>
         <form action={saveFocusDetail} className="mt-4 space-y-2"><input type="hidden" name="assessment_id" value={mdep.id}/><input type="hidden" name="revision" value={mdep.revision}/>
           <label className="block text-sm">Segmento delimitado<textarea name="segment" defaultValue={mdep.focus_segment ?? ""} className={input} minLength={10} maxLength={800} required disabled={!canEdit}/></label>
           <label className="block text-sm">Ventaja considerada<select name="advantage" defaultValue={mdep.focus_advantage ?? ""} className={input} disabled={!canEdit}><option value="">Pendiente</option><option value="costes">Costes en el segmento</option><option value="diferenciacion">Diferenciación en el segmento</option></select></label>
@@ -167,15 +167,19 @@ function AffinityForm({ mdep, action, direction, current, draft, evidenceById, c
   </div>;
 }
 
-function CriterionForm({ mdep, direction, criterion, current, canEdit, scope="general" }: { mdep: MdepAssessment; direction: Direction;
-  criterion: { key: string; label: string; why: string }; current?: Criterion; canEdit: boolean; scope?: "general" | "segment" }) {
-  return <details className="rounded-lg border p-2 text-xs"><summary className="cursor-pointer font-semibold">{criterion.label}: {current?.score ?? "[FALTA]"}</summary><p className="mt-1 text-[#5A626F]">{criterion.why}</p>
-    {current && <p className="mt-1">{current.rationale} · Fuente: {current.source_detail}</p>}
-    {canEdit && <form action={saveMdepCriterion} className="mt-2 space-y-2"><input type="hidden" name="assessment_id" value={mdep.id}/><input type="hidden" name="revision" value={mdep.revision}/><input type="hidden" name="direction" value={direction}/><input type="hidden" name="criterion_key" value={criterion.key}/><input type="hidden" name="scope" value={scope}/>
+function CriterionForm({ mdep, direction, criterion, current, canEdit, scope="general", recentlySaved=false }: { mdep: MdepAssessment; direction: Direction;
+  criterion: { key: string; label: string; why: string }; current?: Criterion; canEdit: boolean; scope?: "general" | "segment"; recentlySaved?: boolean }) {
+  const criterionId = `criterio-${scope}-${direction}-${criterion.key}`;
+  const editor = canEdit && <form action={saveMdepCriterion} className="mt-2 space-y-2"><input type="hidden" name="assessment_id" value={mdep.id}/><input type="hidden" name="revision" value={mdep.revision}/><input type="hidden" name="direction" value={direction}/><input type="hidden" name="criterion_key" value={criterion.key}/><input type="hidden" name="scope" value={scope}/>
       <select name="score" className={input} defaultValue={current?.score ?? ""} required><option value="">[FALTA]</option>{[0,1,2,3,4].map((v) => <option key={v} value={v}>{v}</option>)}</select>
       <textarea name="rationale" className={input} defaultValue={current?.rationale ?? ""} minLength={10} maxLength={1000} required placeholder="Por qué merece esta nota"/>
       <input name="source_detail" className={input} defaultValue={current?.source_detail ?? ""} minLength={8} maxLength={1000} required placeholder="Fuente, fecha y grado de verificación"/>
-      <button className={button}>Guardar criterio</button></form>}</details>;
+      <button className={button}>{current ? "Guardar cambios" : "Guardar criterio"}</button></form>;
+  return <details id={criterionId} open={recentlySaved || undefined} className="rounded-lg border p-2 text-xs"><summary className="cursor-pointer font-semibold">{criterion.label} · {current ? `Registrado: ${current.score}/4` : "[FALTA]"}</summary><p className="mt-1 text-[#5A626F]">{criterion.why}</p>
+    {current && <><p className="mt-2 rounded bg-[#EAF3EC] p-2 text-[#31523B]">Valoración registrada · {mdep.status === "approved" ? "incluida en la MDEP aprobada" : "pendiente de revisión final MDEP"}.</p>
+      <p className="mt-2">{current.rationale}</p><p className="mt-1 text-[#5A626F]">Fuente: {current.source_detail}</p></>}
+    {current && canEdit ? <details className="mt-3 rounded-lg border border-[#C9C5BF] bg-white p-2"><summary className="cursor-pointer font-semibold text-[#192538]">Editar criterio</summary>{editor}</details> : editor}
+  </details>;
 }
 
 function ConditionForm({ mdep, direction, current, canEdit }: { mdep: MdepAssessment; direction: Direction; current?: Condition; canEdit: boolean }) {

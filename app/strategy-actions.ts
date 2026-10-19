@@ -372,7 +372,7 @@ export async function saveMdepCriterion(form: FormData) {
     audit(db, actor, cycle.id, "mdep.criterion_saved", "mdep_assessment", mdep.id,
       { direction, scope, key, score, rationale, source, previous: previous ?? null, revision: mdep.revision + 1 }),
   ]);
-  refresh(); redirect(`${porterPath}?saved=1`);
+  refresh(); redirect(`${porterPath}?saved=criterion&criterion=${encodeURIComponent(`${scope}-${direction}-${key}`)}#criterio-${encodeURIComponent(`${scope}-${direction}-${key}`)}`);
 }
 
 export async function saveMdepCondition(form: FormData) {
