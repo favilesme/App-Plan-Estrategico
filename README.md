@@ -2,7 +2,7 @@
 
 Archivos fuente de la Aplicacion de Plan Estrategico creada en Sites.
 
-Aplicación privada de planificación estratégica de Anima Praxis. Este repositorio conserva el código fuente; cada instalación del Site mantiene sus propios usuarios, datos y configuración de entorno. El estado funcional actual incluye el **Sprint 5**: arquitectura multiusuario, perfil empresarial, diagnóstico guiado, análisis interno y externo, FODA base, FODA cuantitativa, formulación de acciones y evaluación competitiva MDEP con revisión humana. Los módulos de objetivos y ejecución siguen pendientes.
+Aplicación privada de planificación estratégica de Anima Praxis. Este repositorio conserva el código fuente; cada instalación del Site mantiene sus propios usuarios, datos y configuración de entorno. El estado funcional actual incluye el **inicio del Sprint 6**: además de los módulos aprobados hasta la dirección competitiva MDEP, permite formular borradores de objetivos BSC e iniciativas vinculadas. La revisión y aprobación de estos nuevos borradores y la ficha completa de KPIs siguen pendientes de definición metodológica.
 
 ## Estructura
 

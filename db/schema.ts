@@ -451,3 +451,43 @@ export const mdepVotes = sqliteTable("mdep_votes", {
   rationale: text("rationale").notNull(),
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (table) => [index("idx_mdep_votes_revision").on(table.assessmentId, table.assessmentRevision)]);
+
+// Sprint 6 keeps client-authored objectives and initiatives as drafts. The
+// approved MDEP and action set are immutable source references, not AI choices.
+export const strategicObjectives = sqliteTable("strategic_objectives", {
+  id: text("id").primaryKey(),
+  cycleId: text("cycle_id").notNull().references(() => strategyCycles.id),
+  assessmentId: text("assessment_id").notNull().references(() => mdepAssessments.id),
+  perspective: text("perspective").notNull(),
+  statement: text("statement").notNull(),
+  desiredResult: text("desired_result").notNull(),
+  strategyLink: text("strategy_link").notNull(),
+  sourceActionIdsJson: text("source_action_ids_json").notNull(),
+  evidenceIdsJson: text("evidence_ids_json").notNull(),
+  evidenceNote: text("evidence_note").notNull(),
+  kpiName: text("kpi_name").notNull(),
+  kpiUnit: text("kpi_unit").notNull(),
+  kpiDefinition: text("kpi_definition").notNull(),
+  status: text("status").notNull().default("draft"),
+  version: integer("version").notNull().default(1),
+  updatedByUserId: text("updated_by_user_id").notNull(),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [index("idx_objectives_assessment").on(table.assessmentId)]);
+
+export const strategicInitiatives = sqliteTable("strategic_initiatives", {
+  id: text("id").primaryKey(),
+  cycleId: text("cycle_id").notNull().references(() => strategyCycles.id),
+  objectiveId: text("objective_id").notNull().references(() => strategicObjectives.id),
+  objectiveVersion: integer("objective_version").notNull(),
+  sourceActionId: text("source_action_id").notNull().references(() => strategicActions.id),
+  statement: text("statement").notNull(),
+  expectedResult: text("expected_result").notNull(),
+  responsibleMemberId: text("responsible_member_id").notNull().references(() => members.id),
+  evidenceNote: text("evidence_note").notNull(),
+  status: text("status").notNull().default("draft"),
+  version: integer("version").notNull().default(1),
+  updatedByUserId: text("updated_by_user_id").notNull(),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [index("idx_initiatives_objective").on(table.objectiveId)]);

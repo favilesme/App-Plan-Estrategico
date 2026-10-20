@@ -13,7 +13,8 @@
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "drizzle-kit generate",
     "test:foda": "node --experimental-strip-types --test tests/foda-matrix.test.mjs",
-    "test:mdep": "node --experimental-strip-types --test tests/mdep.test.mjs"
+    "test:mdep": "node --experimental-strip-types --test tests/mdep.test.mjs",
+    "test:sprint6": "node --experimental-strip-types --test tests/sprint6.test.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

@@ -15,6 +15,7 @@ import { diagnosticSubject, getDiagnosticInputs, latestApproval } from "@/lib/sp
 import { getConsultantFodaReview, getFodaEvidence, getFodaFactors, getFodaSet, getFodaValidations } from "@/lib/sprint3";
 import { getMatrixReview, getMatrixVersions, getMatrixVotes } from "@/lib/sprint4";
 import { getActionSet, getActionVotes, getMdep, getMdepVotes, latestGate } from "@/lib/sprint5";
+import { bscCoverage, getObjectives } from "@/lib/sprint6";
 import { getCurrentCycle, getMembers, getModuleProgress, getOrganization } from "@/lib/workspace";
 
 export const dynamic = "force-dynamic";
@@ -38,6 +39,8 @@ export default async function Home() {
   const currentMatrix = matrixVersions.find((item) => item.set_version === fodaSet?.version);
   const actionSet = currentMatrix?.status === "approved" ? await getActionSet(currentMatrix.id) : null;
   const mdep = actionSet?.status === "approved" ? await getMdep(actionSet.id) : null;
+  const objectives = mdep?.status === "approved" ? await getObjectives(mdep.id) : [];
+  const objectiveCoverage = bscCoverage(objectives);
   let consultantStrategy: { title: string; href: string; ready: boolean } | null = null;
   if (actor.role === "consultant" && organization && cycle) {
     const set = fodaSet;
@@ -71,13 +74,14 @@ export default async function Home() {
   }
   const nextTitle = fodaSet?.status === "frozen"
     ? currentMatrix?.status === "approved" ?
-      actionSet?.status !== "approved" ? "Formular acciones estratégicas" : mdep?.status !== "approved" ? "Evaluar estrategia competitiva" : "Definir objetivos estratégicos"
+      actionSet?.status !== "approved" ? "Formular acciones estratégicas" : mdep?.status !== "approved" ? "Evaluar estrategia competitiva" : objectiveCoverage.count === 4 ? "Vincular iniciativas a objetivos" : "Definir objetivos estratégicos"
       : currentMatrix ? "Completar FODA cuantitativa" : "Iniciar FODA cuantitativa"
     : organization ? "Completar perfil y equipo" : "Crear el primer ciclo";
   const nextDescription = fodaSet?.status === "frozen"
     ? currentMatrix?.status === "approved" ? actionSet?.status !== "approved" ?
       "Vincula acciones FO, FA, DO y DA con factores y evidencias; priorízalas y obtén la revisión del equipo y consultor." :
       mdep?.status !== "approved" ? "Compara costes, diferenciación y enfoque con afinidad, viabilidad y condiciones verificables." :
+      objectiveCoverage.count === 4 ? "Convierte los objetivos trazables en iniciativas con responsable y evidencia." :
       "La dirección competitiva quedó aprobada. Traduce la decisión en objetivos estratégicos." :
       "Califica FO y DA, interpreta FA y DO, analiza vulnerabilidad y registra la revisión del equipo y el consultor."
     : organization ? "Completa el encuadre y la filosofía empresarial; después registra antecedentes del diagnóstico con sus fuentes." :
@@ -117,6 +121,7 @@ export default async function Home() {
         {fodaSet?.status === "frozen" && currentMatrix?.status !== "approved" && <Link href="/modulos/foda/matriz" className="mt-3 inline-block text-sm font-semibold text-[#192538] underline underline-offset-2">Abrir matriz</Link>}
         {currentMatrix?.status === "approved" && actionSet?.status !== "approved" && <Link href="/modulos/formulacion" className="mt-3 inline-block text-sm font-semibold text-[#192538] underline underline-offset-2">Abrir formulación</Link>}
         {actionSet?.status === "approved" && mdep?.status !== "approved" && <Link href="/modulos/porter" className="mt-3 inline-block text-sm font-semibold text-[#192538] underline underline-offset-2">Abrir MDEP</Link>}
+        {mdep?.status === "approved" && <Link href={objectiveCoverage.count === 4 ? "/modulos/iniciativas" : "/modulos/objetivos"} className="mt-3 inline-block text-sm font-semibold text-[#192538] underline underline-offset-2">{objectiveCoverage.count === 4 ? "Abrir iniciativas" : "Abrir objetivos"}</Link>}
       </section>
     </div>
 
