@@ -7,9 +7,10 @@ import { getActor } from "@/lib/authz";
 import { getStrategicActions } from "@/lib/sprint5";
 import { getMatrixSource } from "@/lib/sprint4";
 import { getApprovedStrategy, getInitiatives, getObjectives, sourceEvidenceIds,
-  PERSPECTIVES, bscCoverage, initiativeActionBelongsToObjective,
+  bscCoverage, initiativeActionBelongsToObjective,
   type StrategicInitiative, type StrategicObjective } from "@/lib/sprint6";
 import { getCurrentCycle } from "@/lib/workspace";
+import { validateObjectiveDraft } from "@/lib/sprint6-policy.mts";
 
 const objectivePath = "/modulos/objetivos";
 const initiativePath = "/modulos/iniciativas";
@@ -55,11 +56,9 @@ export async function saveObjective(form: FormData) {
   const kpiUnit = field(form, "kpi_unit"), kpiDefinition = field(form, "kpi_definition");
   const actionIds = [...new Set(form.getAll("source_action_id").map(String).map((s) => s.trim()))];
   const actions = await getStrategicActions(strategy.action_set_id);
-  if (!PERSPECTIVES.includes(perspective as typeof PERSPECTIVES[number]) ||
-    !valid(statement, 15, 300) || !valid(desiredResult, 15, 800) || !valid(strategyLink, 20, 1000) ||
-    !valid(evidenceNote, 15, 1000) || !valid(kpiName, 3, 150) || !valid(kpiUnit, 2, 80) ||
-    !valid(kpiDefinition, 10, 500) || actionIds.length === 0 ||
-    actionIds.some((actionId) => !actions.some((action) => action.id === actionId))) redirect(`${objectivePath}?error=invalid`);
+  const issues = validateObjectiveDraft({ perspective, statement, desiredResult, strategyLink,
+    sourceActionIds: actionIds, evidenceNote, kpiName, kpiUnit, kpiDefinition }, actions.map((action) => action.id));
+  if (issues.length) redirect(`${objectivePath}?error=${issues[0]}`);
   const duplicate = await db.prepare("SELECT id FROM strategic_objectives WHERE assessment_id = ? AND lower(trim(statement)) = lower(?) AND id != ?")
     .bind(strategy.id, statement, id || "").first();
   if (duplicate) redirect(`${objectivePath}?error=duplicate`);

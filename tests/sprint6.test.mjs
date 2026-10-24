@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { bscCoverage, initiativeActionBelongsToObjective, parseIds, sourceEvidenceIds } from "../lib/sprint6-policy.mts";
+import { bscCoverage, initiativeActionBelongsToObjective, parseIds, sourceEvidenceIds,
+  validateObjectiveDraft } from "../lib/sprint6-policy.mts";
 
 test("las cuatro perspectivas BSC requieren cobertura distinta", () => {
   assert.equal(bscCoverage([{ perspective: "financiera" }, { perspective: "financiera" }]).count, 1);
@@ -23,4 +24,15 @@ test("la iniciativa solo puede referir acciones de su objetivo", () => {
   assert.equal(initiativeActionBelongsToObjective('["a1"]', "a1"), true);
   assert.equal(initiativeActionBelongsToObjective('["a1"]', "a2"), false);
   assert.equal(initiativeActionBelongsToObjective('malformed', "a1"), false);
+});
+
+test("el objetivo acepta la unidad % y exige una acción aprobada", () => {
+  const fields = { perspective: "financiera", statement: "Evaluar la rentabilidad del segmento",
+    desiredResult: "Confirmar la viabilidad económica del segmento", strategyLink: "Sustenta el enfoque diferenciado en Quito",
+    sourceActionIds: ["a1"], evidenceNote: "Pendiente de validar la fuente externa",
+    kpiName: "Margen del segmento", kpiUnit: "%", kpiDefinition: "Medirá el margen económico del segmento" };
+  assert.deepEqual(validateObjectiveDraft(fields, ["a1"]), []);
+  assert.deepEqual(validateObjectiveDraft({ ...fields, sourceActionIds: [] }, ["a1"]), ["source_action_id"]);
+  assert.deepEqual(validateObjectiveDraft({ ...fields, sourceActionIds: ["a2"] }, ["a1"]), ["source_action_unknown"]);
+  assert.deepEqual(validateObjectiveDraft({ ...fields, statement: "   " }, ["a1"]), ["statement"]);
 });

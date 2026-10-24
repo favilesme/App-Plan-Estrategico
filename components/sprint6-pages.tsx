@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { chatGPTSignInPath } from "@/app/chatgpt-auth";
-import { saveInitiative, saveObjective } from "@/app/sprint6-actions";
+import { saveInitiative } from "@/app/sprint6-actions";
 import { AccessNotice } from "@/components/access-notice";
 import { AppShell } from "@/components/app-shell";
+import { ObjectiveForm } from "@/components/objective-form";
 import { canRead, getActor } from "@/lib/authz";
 import { getStrategicActions, type StrategicAction } from "@/lib/sprint5";
 import { getMatrixSource } from "@/lib/sprint4";
@@ -12,6 +13,7 @@ import { bscCoverage, getApprovedStrategy, getInitiatives, getObjectives, parseI
 import { getConditions } from "@/lib/sprint5";
 import { DIRECTION_LABELS } from "@/lib/mdep";
 import { getCurrentCycle, getMembers, getOrganization, type Member } from "@/lib/workspace";
+import { OBJECTIVE_VALIDATION_MESSAGES, type ObjectiveValidationCode } from "@/lib/sprint6-policy.mts";
 
 const input = "mt-1 w-full rounded-lg border border-[#C9C5BF] bg-white px-3 py-2 text-sm text-[#192538]";
 const button = "rounded-lg bg-[#192538] px-4 py-2 text-sm font-semibold text-white hover:bg-[#344052]";
@@ -67,29 +69,6 @@ function SourceList({ ids, actions, evidence }: { ids: string[]; actions: Strate
   </div>;
 }
 
-function ObjectiveForm({ item, actions }: { item?: StrategicObjective; actions: StrategicAction[] }) {
-  const selected = new Set(item ? parseIds(item.source_action_ids_json) : []);
-  return <form action={saveObjective} className="mt-4 space-y-3">
-    <input type="hidden" name="id" value={item?.id ?? ""}/><input type="hidden" name="version" value={item?.version ?? 0}/>
-    <label className="block text-sm font-medium">Perspectiva BSC<select name="perspective" defaultValue={item?.perspective ?? ""} className={input} required>
-      <option value="">Seleccionar perspectiva</option>{PERSPECTIVES.map((key) => <option key={key} value={key}>{PERSPECTIVE_LABELS[key]}</option>)}
-    </select></label>
-    <label className="block text-sm font-medium">Objetivo estratégico<input name="statement" defaultValue={item?.statement ?? ""} className={input} minLength={15} maxLength={300} required placeholder="Resultado estratégico concreto para el segmento aprobado"/></label>
-    <label className="block text-sm font-medium">Resultado esperado<textarea name="desired_result" defaultValue={item?.desired_result ?? ""} className={input} minLength={15} maxLength={800} required/></label>
-    <label className="block text-sm font-medium">Cómo contribuye a la dirección aprobada<textarea name="strategy_link" defaultValue={item?.strategy_link ?? ""} className={input} minLength={20} maxLength={1000} required/></label>
-    <fieldset className="rounded-lg border border-[#E6DFD6] p-3"><legend className="px-1 text-sm font-semibold">Acciones aprobadas que sustentan el objetivo</legend>
-      <div className="mt-2 space-y-2">{actions.map((action) => <label key={action.id} className="flex gap-2 text-sm"><input type="checkbox" name="source_action_id" value={action.id} defaultChecked={selected.has(action.id)}/><span>{action.quadrant} · {action.statement}</span></label>)}</div>
-      <p className="mt-2 text-xs text-[#5A626F]">Selecciona al menos una. Se conservan sus referencias de evidencia y versión.</p>
-    </fieldset>
-    <label className="block text-sm font-medium">Fundamento de evidencia y límites<textarea name="evidence_note" defaultValue={item?.evidence_note ?? ""} className={input} minLength={15} maxLength={1000} required placeholder="Qué respalda este objetivo y qué falta validar"/></label>
-    <div className="grid gap-3 sm:grid-cols-2"><label className="block text-sm font-medium">KPI propio · nombre<input name="kpi_name" defaultValue={item?.kpi_name ?? ""} className={input} minLength={3} maxLength={150} required/></label>
-      <label className="block text-sm font-medium">Unidad<input name="kpi_unit" defaultValue={item?.kpi_unit ?? ""} className={input} minLength={2} maxLength={80} required placeholder="%, USD, clientes, días…"/></label></div>
-    <label className="block text-sm font-medium">Qué medirá el KPI<textarea name="kpi_definition" defaultValue={item?.kpi_definition ?? ""} className={input} minLength={10} maxLength={500} required/></label>
-    <p className="text-xs text-[#5A626F]">Fórmula, línea base, fuente de datos y metas se validarán en la fase de ejecución/KPIs. Ningún valor faltante se interpreta como cero.</p>
-    <button className={button}>{item ? "Guardar nueva versión del objetivo" : "Guardar objetivo en borrador"}</button>
-  </form>;
-}
-
 export async function ObjectivesPage({ searchParams }: { searchParams: Query }) {
   const query = await searchParams, data = await pageData("objetivos");
   if (data.denied) return <AccessNotice configured={data.actor.role !== "unconfigured"}/>;
@@ -99,7 +78,15 @@ export async function ObjectivesPage({ searchParams }: { searchParams: Query }) 
     <Link href="/modulos/porter" className="text-sm font-semibold underline">← Dirección competitiva</Link>
     <header><p className="text-xs font-semibold uppercase tracking-widest text-[#5A626F]">Sprint 6 · Formulación</p><h1 className="mt-2 font-serif text-3xl text-[#192538]">Objetivos estratégicos</h1>
       <p className="mt-2 text-sm text-[#5A626F]">Los borradores los formula el cliente desde la decisión aprobada. El consultor revisará el contenido antes de su aprobación final.</p></header>
-    {query.error && <p role="alert" className="rounded-lg bg-[#FBF0EA] p-3 text-sm text-[#7E3527]">{query.error === "duplicate" ? "Ya existe un objetivo con ese texto en este ciclo." : query.error === "linked" ? "Una iniciativa usa una acción que intentas quitar del objetivo." : query.error === "evidence" ? "Las acciones elegidas no tienen referencias de evidencia. Registra la evidencia de origen antes de formular el objetivo." : query.error === "stale" ? "Esta versión cambió. Actualiza la página antes de guardar." : "No se guardó el objetivo. Revisa permisos, campos y acciones vinculadas."}</p>}
+    {query.error && <p role="alert" className="rounded-lg bg-[#FBF0EA] p-3 text-sm text-[#7E3527]">{query.error in OBJECTIVE_VALIDATION_MESSAGES
+      ? OBJECTIVE_VALIDATION_MESSAGES[query.error as ObjectiveValidationCode]
+      : query.error === "duplicate" ? "Ya existe un objetivo con ese texto en este ciclo."
+      : query.error === "linked" ? "Una iniciativa usa una acción que intentas quitar del objetivo."
+      : query.error === "evidence" ? "Las acciones elegidas no tienen referencias de evidencia. Registra la evidencia de origen antes de formular el objetivo."
+      : query.error === "stale" ? "Esta versión cambió. Actualiza la página antes de guardar."
+      : query.error === "permission" ? "Tu cuenta no tiene permiso para formular objetivos en este ciclo."
+      : query.error === "source" ? "No hay una dirección competitiva aprobada para este ciclo."
+      : "No se guardó el objetivo. Revisa los campos y las acciones vinculadas."}</p>}
     {query.saved && <p role="status" className="rounded-lg bg-[#EAF3EC] p-3 text-sm">Objetivo guardado en borrador con trazabilidad y versión.</p>}
     {!strategy ? <section className={card}><h2 className="font-semibold">Dependencia pendiente</h2><p className="mt-2 text-sm">Primero debe quedar aprobada la dirección competitiva del ciclo.</p></section> : <>
       <StrategyContext strategy={strategy} condition={conditions.find((item) => item.direction === strategy.choice_direction)}/>
