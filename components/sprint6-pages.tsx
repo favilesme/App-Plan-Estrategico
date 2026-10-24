@@ -69,10 +69,14 @@ function SourceList({ ids, actions, evidence }: { ids: string[]; actions: Strate
   </div>;
 }
 
+function editorName(userId: string, members: Member[]): string {
+  return members.find((member) => member.auth_user_id === userId)?.display_name.trim() || "[FALTA] Autor no identificado";
+}
+
 export async function ObjectivesPage({ searchParams }: { searchParams: Query }) {
   const query = await searchParams, data = await pageData("objetivos");
   if (data.denied) return <AccessNotice configured={data.actor.role !== "unconfigured"}/>;
-  const { strategy, actions, objectives, conditions, evidence, canEdit } = data;
+  const { strategy, actions, objectives, members, conditions, evidence, canEdit } = data;
   const coverage = bscCoverage(objectives);
   return <AppShell active="objetivos"><main className="mx-auto max-w-6xl space-y-5 px-5 py-8 lg:px-9">
     <Link href="/modulos/porter" className="text-sm font-semibold underline">← Dirección competitiva</Link>
@@ -98,7 +102,7 @@ export async function ObjectivesPage({ searchParams }: { searchParams: Query }) 
         <p className="mt-2 text-sm"><strong>Resultado:</strong> {item.desired_result}</p><p className="mt-1 text-sm"><strong>Vínculo estratégico:</strong> {item.strategy_link}</p>
         <p className="mt-1 text-sm"><strong>Fundamento y límites:</strong> {item.evidence_note}</p><p className="mt-1 text-sm"><strong>KPI propio:</strong> {item.kpi_name} ({item.kpi_unit}) · {item.kpi_definition}</p>
         <SourceList ids={parseIds(item.source_action_ids_json)} actions={actions} evidence={evidence}/>
-        <p className="mt-2 text-xs text-[#5A626F]">Autor de última edición: {item.updated_by_user_id} · {item.updated_at}</p>
+        <p className="mt-2 text-xs text-[#5A626F]">Autor de última edición: {editorName(item.updated_by_user_id, members)} · {item.updated_at}</p>
         {canEdit && <details className="mt-4"><summary className="cursor-pointer text-sm font-semibold underline">Editar borrador</summary><ObjectiveForm item={item} actions={actions}/></details>}
       </section>)}
       {canEdit && <section className={card}><h2 className="text-lg font-semibold">Añadir objetivo</h2><ObjectiveForm actions={actions}/></section>}
@@ -137,7 +141,7 @@ export async function InitiativesPage({ searchParams }: { searchParams: Query })
           <p className="mt-1 text-sm"><strong>Responsable:</strong> {members.find((member) => member.id === item.responsible_member_id)?.display_name ?? "[FALTA]"}</p>
           <p className="mt-1 text-sm"><strong>Fundamento:</strong> {item.evidence_note}</p><p className="mt-1 text-sm"><strong>KPI del objetivo:</strong> {objective?.kpi_name ?? "[FALTA]"}</p>
           <SourceList ids={[item.source_action_id]} actions={actions} evidence={evidence}/>
-          <p className="mt-2 text-xs text-[#5A626F]">Autor de última edición: {item.updated_by_user_id} · {item.updated_at}</p>
+          <p className="mt-2 text-xs text-[#5A626F]">Autor de última edición: {editorName(item.updated_by_user_id, members)} · {item.updated_at}</p>
           {canEdit && <details className="mt-4"><summary className="cursor-pointer text-sm font-semibold underline">Editar borrador</summary><InitiativeForm item={item} objectives={objectives} actions={actions} members={members}/></details>}
         </section>; })}
       {canEdit && coverage.count === 4 && <section className={card}><h2 className="text-lg font-semibold">Añadir iniciativa</h2><InitiativeForm objectives={objectives} actions={actions} members={members}/></section>}
