@@ -14,9 +14,11 @@ import { modules, moduleHref } from "@/lib/modules";
 import { diagnosticSubject, getDiagnosticInputs, latestApproval } from "@/lib/sprint2";
 import { getConsultantFodaReview, getFodaEvidence, getFodaFactors, getFodaSet, getFodaValidations } from "@/lib/sprint3";
 import { getMatrixReview, getMatrixVersions, getMatrixVotes } from "@/lib/sprint4";
-import { getActionSet, getActionVotes, getMdep, getMdepVotes, latestGate } from "@/lib/sprint5";
-import { bscCoverage, getObjectives } from "@/lib/sprint6";
-import { getCurrentCycle, getMembers, getModuleProgress, getOrganization } from "@/lib/workspace";
+import { getActionSet, getActionVotes, getMdep, getMdepVotes, getStrategicActions, latestGate,
+  type StrategicAction } from "@/lib/sprint5";
+import { bscCoverage, getInitiatives, getObjectives, type StrategicInitiative } from "@/lib/sprint6";
+import { getStageState } from "@/lib/sprint6-review";
+import { getCurrentCycle, getMembers, getModuleProgress, getOrganization, type Member } from "@/lib/workspace";
 
 export const dynamic = "force-dynamic";
 
@@ -41,6 +43,18 @@ export default async function Home() {
   const mdep = actionSet?.status === "approved" ? await getMdep(actionSet.id) : null;
   const objectives = mdep?.status === "approved" ? await getObjectives(mdep.id) : [];
   const objectiveCoverage = bscCoverage(objectives);
+  let initiatives: StrategicInitiative[] = [], sprint6Members: Member[] = [], approvedActions: StrategicAction[] = [];
+  if (mdep?.status === "approved" && cycle && organization) {
+    [initiatives, sprint6Members, approvedActions] = await Promise.all([
+      getInitiatives(cycle.id), getMembers(organization.id), getStrategicActions(mdep.action_set_id),
+    ]);
+  }
+  const objectiveStage = mdep?.status === "approved" && cycle ? await getStageState({ cycleId: cycle.id,
+    assessmentId: mdep.id, stage: "objectives", objectives, initiatives, members: sprint6Members,
+    approvedActionIds: approvedActions.map((item) => item.id) }) : null;
+  const initiativeStage = mdep?.status === "approved" && cycle ? await getStageState({ cycleId: cycle.id,
+    assessmentId: mdep.id, stage: "initiatives", objectives, initiatives, members: sprint6Members,
+    approvedActionIds: approvedActions.map((item) => item.id) }) : null;
   let consultantStrategy: { title: string; href: string; ready: boolean } | null = null;
   if (actor.role === "consultant" && organization && cycle) {
     const set = fodaSet;
@@ -72,17 +86,38 @@ export default async function Home() {
       if (!review) consultantStrategy = { title: "Dirección competitiva MDEP", href: "/modulos/porter", ready: state.ready };
     }
   }
+  const pendingSprint6 = objectiveStage && !objectiveStage.approved ? { state: objectiveStage,
+    title: "Objetivos estratégicos", href: "/modulos/objetivos#revision-sprint6" }
+    : initiativeStage && !initiativeStage.approved ? { state: initiativeStage,
+      title: "Iniciativas", href: "/modulos/iniciativas#revision-sprint6" } : null;
+  const consultantSprint6 = actor.role === "consultant" && pendingSprint6 && !pendingSprint6.state.reviewRecorded
+    ? pendingSprint6 : null;
+  const sprint6Href = !objectiveStage?.approved ? "/modulos/objetivos" : !initiativeStage?.approved ? "/modulos/iniciativas" : "/modulos/ejecucion";
+  const sprint6Title = !objectiveStage?.approved
+    ? objectiveCoverage.count !== 4 ? "Definir objetivos estratégicos" : objectiveStage?.review?.status === "approved"
+      ? "Decisión final de objetivos" : objectiveStage?.review?.status === "changes_requested"
+        ? "Corregir objetivos estratégicos" : objectiveStage?.votes.ready ? "Revisión del consultor · objetivos"
+          : "Validar objetivos con el equipo"
+    : !initiativeStage?.approved ? !initiatives.length ? "Formular iniciativas" : initiativeStage?.review?.status === "approved"
+      ? "Decisión final de iniciativas" : initiativeStage?.review?.status === "changes_requested"
+        ? "Corregir iniciativas" : initiativeStage?.votes.ready ? "Revisión del consultor · iniciativas"
+          : "Validar iniciativas con el equipo"
+      : "Plan de ejecución · siguiente etapa";
+  const sprint6Description = !objectiveStage?.approved
+    ? objectiveCoverage.count === 4 ? "Los objetivos cubren las cuatro perspectivas BSC. El equipo valida las versiones, el consultor revisa y el director decide."
+      : "Completa un objetivo trazable en cada perspectiva BSC antes de la revisión del equipo."
+    : !initiativeStage?.approved ? "Las iniciativas se vinculan a objetivos aprobados. Completa la participación del equipo y la revisión humana."
+      : "Objetivos e iniciativas aprobados. El plan de ejecución corresponde a la siguiente etapa del piloto.";
   const nextTitle = fodaSet?.status === "frozen"
     ? currentMatrix?.status === "approved" ?
-      actionSet?.status !== "approved" ? "Formular acciones estratégicas" : mdep?.status !== "approved" ? "Evaluar estrategia competitiva" : objectiveCoverage.count === 4 ? "Vincular iniciativas a objetivos" : "Definir objetivos estratégicos"
+      actionSet?.status !== "approved" ? "Formular acciones estratégicas" : mdep?.status !== "approved" ? "Evaluar estrategia competitiva" : sprint6Title
       : currentMatrix ? "Completar FODA cuantitativa" : "Iniciar FODA cuantitativa"
     : organization ? "Completar perfil y equipo" : "Crear el primer ciclo";
   const nextDescription = fodaSet?.status === "frozen"
     ? currentMatrix?.status === "approved" ? actionSet?.status !== "approved" ?
       "Vincula acciones FO, FA, DO y DA con factores y evidencias; priorízalas y obtén la revisión del equipo y consultor." :
       mdep?.status !== "approved" ? "Compara costes, diferenciación y enfoque con afinidad, viabilidad y condiciones verificables." :
-      objectiveCoverage.count === 4 ? "Convierte los objetivos trazables en iniciativas con responsable y evidencia." :
-      "La dirección competitiva quedó aprobada. Traduce la decisión en objetivos estratégicos." :
+      sprint6Description :
       "Califica FO y DA, interpreta FA y DO, analiza vulnerabilidad y registra la revisión del equipo y el consultor."
     : organization ? "Completa el encuadre y la filosofía empresarial; después registra antecedentes del diagnóstico con sus fuentes." :
       "Define la organización y el periodo de planificación. Después podrás asignar al Equipo de Alto Nivel.";
@@ -109,6 +144,7 @@ export default async function Home() {
     </section>}
     {consultantMatrix?.pending && <section role="status" className="mb-8 rounded-2xl border border-[#D6A871] bg-[#FBF5EB] p-6"><p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#5A626F]">Bandeja del consultor · FODA cuantitativa</p><h2 className="mt-2 text-xl font-semibold text-[#192538]">Revisión de puntajes y prioridades</h2><p className="mt-2 text-sm text-[#192538]">{consultantMatrix.ready ? "El equipo alcanzó el quórum. Revisa el resultado y registra tu decisión." : "La matriz está en elaboración. Puedes revisar sus avances; la decisión se habilitará con el quórum."}</p><Link href={`/modulos/foda/matriz?matrix=${consultantMatrix.matrixId}`} className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-[#192538] underline underline-offset-2">Ver matriz <ArrowUpRight className="size-4" /></Link></section>}
     {consultantStrategy && <section role="status" className="mb-8 rounded-2xl border border-[#D6A871] bg-[#FBF5EB] p-6"><p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#5A626F]">Bandeja del consultor · Sprint 5</p><h2 className="mt-2 text-xl font-semibold text-[#192538]">{consultantStrategy.title}</h2><p className="mt-2 text-sm">{consultantStrategy.ready ? "El equipo alcanzó el quórum. Comprueba fuentes, notas y condiciones para registrar tu revisión." : "El equipo está completando su deliberación. Puedes revisar los avances."}</p><Link href={consultantStrategy.href} className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-[#192538] underline">Abrir revisión <ArrowUpRight className="size-4" /></Link></section>}
+    {consultantSprint6 && <section role="status" className="mb-8 rounded-2xl border border-[#D6A871] bg-[#FBF5EB] p-6"><p className="text-xs font-semibold uppercase tracking-[0.1em] text-[#5A626F]">Bandeja del consultor · Sprint 6</p><h2 className="mt-2 text-xl font-semibold text-[#192538]">{consultantSprint6.title}</h2><p className="mt-2 text-sm">{consultantSprint6.state.readyForReview ? "El equipo alcanzó el quórum. Revisa las versiones vigentes y registra tu decisión." : "Puedes revisar los borradores. La decisión se habilita cuando el equipo complete el quórum y no existan bloqueos."}</p><Link href={consultantSprint6.href} className="mt-4 inline-flex items-center gap-1 text-sm font-semibold text-[#192538] underline">Abrir revisión <ArrowUpRight className="size-4" /></Link></section>}
 
     <div className="mb-8 grid gap-4 lg:grid-cols-[1.25fr_0.75fr]">
       <section className="rounded-2xl border border-[#E6DFD6] bg-white p-6 shadow-[0_8px_30px_rgba(14,41,58,0.04)]" aria-labelledby="progress-title">
@@ -121,7 +157,7 @@ export default async function Home() {
         {fodaSet?.status === "frozen" && currentMatrix?.status !== "approved" && <Link href="/modulos/foda/matriz" className="mt-3 inline-block text-sm font-semibold text-[#192538] underline underline-offset-2">Abrir matriz</Link>}
         {currentMatrix?.status === "approved" && actionSet?.status !== "approved" && <Link href="/modulos/formulacion" className="mt-3 inline-block text-sm font-semibold text-[#192538] underline underline-offset-2">Abrir formulación</Link>}
         {actionSet?.status === "approved" && mdep?.status !== "approved" && <Link href="/modulos/porter" className="mt-3 inline-block text-sm font-semibold text-[#192538] underline underline-offset-2">Abrir MDEP</Link>}
-        {mdep?.status === "approved" && <Link href={objectiveCoverage.count === 4 ? "/modulos/iniciativas" : "/modulos/objetivos"} className="mt-3 inline-block text-sm font-semibold text-[#192538] underline underline-offset-2">{objectiveCoverage.count === 4 ? "Abrir iniciativas" : "Abrir objetivos"}</Link>}
+        {mdep?.status === "approved" && <Link href={sprint6Href} className="mt-3 inline-block text-sm font-semibold text-[#192538] underline underline-offset-2">Abrir {sprint6Href === "/modulos/objetivos" ? "objetivos" : sprint6Href === "/modulos/iniciativas" ? "iniciativas" : "plan de ejecución"}</Link>}
       </section>
     </div>
 
