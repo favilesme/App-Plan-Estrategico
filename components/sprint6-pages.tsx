@@ -110,6 +110,8 @@ function ReviewPanel({ stage, state, members, actorRole, actorMemberId }: { stag
         <button className={button} name="decision" value="changes_requested" disabled={state.blockers.length > 0}>Solicitar cambios</button></div>
     </form>}
     {state.review && <div className="mt-4 rounded-lg bg-[#FAF8F4] p-3 text-sm"><strong>Revisión del consultor:</strong> {state.review.status === "approved" ? "favorable" : "cambios solicitados"} · {editorName(state.review.reviewer_user_id, members)} · {state.review.created_at}<p className="mt-1 whitespace-pre-wrap text-[#5A626F]">{state.review.rationale}</p></div>}
+    {state.approved && (state.final ? <div className="mt-3 rounded-lg bg-[#EAF3EC] p-3 text-sm"><strong>Decisión final del director:</strong> aprobada · {editorName(state.final.reviewer_user_id, members)} · {state.final.created_at}<p className="mt-1 whitespace-pre-wrap text-[#31523B]">{state.final.rationale}</p></div>
+      : <p role="alert" className="mt-3 text-sm text-[#7E3527]">[FALTA] Registro verificable de la decisión final para estas versiones.</p>)}
     {actorRole === "consultant" && !state.approved && !state.reviewRecorded && <form action={reviewAction} className="mt-5 space-y-3 border-t border-[#E6DFD6] pt-4">
       <input type="hidden" name="expected_subject" value={state.subject}/><h3 className="font-semibold">Revisión metodológica del consultor</h3>
       <p className="text-sm text-[#5A626F]">{state.readyForReview ? "El quórum está completo. Revisa trazabilidad, coherencia, evidencia y restricciones antes de decidir." : "La revisión se habilita al completar los bloqueos y el quórum del equipo."}</p>
@@ -133,7 +135,7 @@ export async function ObjectivesPage({ searchParams }: { searchParams: Query }) 
   return <AppShell active="objetivos"><main className="mx-auto max-w-6xl space-y-5 px-5 py-8 lg:px-9">
     <Link href="/modulos/porter" className="text-sm font-semibold underline">← Dirección competitiva</Link>
     <header><p className="text-xs font-semibold uppercase tracking-widest text-[#5A626F]">Sprint 6 · Formulación</p><h1 className="mt-2 font-serif text-3xl text-[#192538]">Objetivos estratégicos</h1>
-      <p className="mt-2 text-sm text-[#5A626F]">Los borradores los formula el cliente desde la decisión aprobada. El consultor revisará el contenido antes de su aprobación final.</p></header>
+      <p className="mt-2 text-sm text-[#5A626F]">{reviewState?.approved ? "Objetivos aprobados tras la participación del equipo, la revisión del consultor y la decisión final del director." : "Los borradores los formula el cliente desde la decisión aprobada. El consultor revisará el contenido antes de su aprobación final."}</p></header>
     {query.error && <p role="alert" className="rounded-lg bg-[#FBF0EA] p-3 text-sm text-[#7E3527]">{query.error in OBJECTIVE_VALIDATION_MESSAGES
       ? OBJECTIVE_VALIDATION_MESSAGES[query.error as ObjectiveValidationCode]
       : query.error === "duplicate" ? "Ya existe un objetivo con ese texto en este ciclo."
@@ -155,7 +157,7 @@ export async function ObjectivesPage({ searchParams }: { searchParams: Query }) 
       <StrategyContext strategy={strategy} condition={conditions.find((item) => item.direction === strategy.choice_direction)}/>
       <section className={card}><h2 className="text-lg font-semibold">Cobertura Balanced Scorecard · {coverage.count}/4</h2><p className="mt-2 text-sm">Para completar la propuesta debe existir al menos un objetivo en cada perspectiva. Estado actual: {reviewState?.approved ? "aprobado" : "borrador en revisión"}.</p>
         <div className="mt-3 grid gap-2 sm:grid-cols-2">{PERSPECTIVES.map((key) => <div key={key} className="rounded-lg bg-[#FAF8F4] p-3 text-sm"><strong>{PERSPECTIVE_LABELS[key]}:</strong> {objectives.filter((item) => item.perspective === key).length || "[FALTA]"}</div>)}</div>
-        {coverage.missing.length === 0 && <p className="mt-3 text-sm font-semibold text-[#31523B]">Las cuatro perspectivas tienen objetivos. Revisión humana pendiente.</p>}
+        {coverage.missing.length === 0 && <p className="mt-3 text-sm font-semibold text-[#31523B]">Las cuatro perspectivas tienen objetivos. {reviewState?.approved ? "Revisión humana y decisión del director registradas." : "Revisión humana pendiente."}</p>}
       </section>
       {reviewState && <ReviewPanel stage="objectives" state={reviewState} members={members} actorRole={actor.role} actorMemberId={actor.memberId}/>}
       {objectives.map((item) => <section key={item.id} id={`objetivo-${item.id}`} className={card}><div className="flex flex-wrap justify-between gap-2"><h2 className="text-lg font-semibold">{item.statement}</h2><span className="text-xs text-[#5A626F]">{PERSPECTIVE_LABELS[item.perspective]} · {item.status === "approved" ? "aprobado" : "borrador"} v{item.version}</span></div>
@@ -189,7 +191,7 @@ export async function InitiativesPage({ searchParams }: { searchParams: Query })
   const { actor, strategy, objectives, actions, initiatives, members, conditions, evidence, canEdit, reviewState } = data;
   const coverage = bscCoverage(objectives);
   return <AppShell active="iniciativas"><main className="mx-auto max-w-6xl space-y-5 px-5 py-8 lg:px-9"><Link href="/modulos/objetivos" className="text-sm font-semibold underline">← Objetivos estratégicos</Link>
-    <header><p className="text-xs font-semibold uppercase tracking-widest text-[#5A626F]">Sprint 6 · Despliegue</p><h1 className="mt-2 font-serif text-3xl text-[#192538]">Iniciativas</h1><p className="mt-2 text-sm text-[#5A626F]">Cada iniciativa se vincula a un objetivo, una acción estratégica y un responsable. Permanecerá en borrador hasta revisión humana.</p></header>
+    <header><p className="text-xs font-semibold uppercase tracking-widest text-[#5A626F]">Sprint 6 · Despliegue</p><h1 className="mt-2 font-serif text-3xl text-[#192538]">Iniciativas</h1><p className="mt-2 text-sm text-[#5A626F]">{reviewState?.approved ? "Iniciativas aprobadas tras la participación del equipo, la revisión del consultor y la decisión final del director." : "Cada iniciativa se vincula a un objetivo, una acción estratégica y un responsable. Permanecerá en borrador hasta revisión humana."}</p></header>
     {query.error && <p role="alert" className="rounded-lg bg-[#FBF0EA] p-3 text-sm text-[#7E3527]">{query.error === "coverage" ? "Completa un objetivo en cada una de las cuatro perspectivas BSC antes de formular iniciativas."
       : query.error === "stale" ? "Esta versión cambió. Actualiza la página antes de guardar o decidir."
       : query.error === "closed" ? "Las iniciativas ya fueron aprobadas. Esta etapa está cerrada para edición."
