@@ -14,7 +14,8 @@
     "db:generate": "drizzle-kit generate",
     "test:foda": "node --experimental-strip-types --test tests/foda-matrix.test.mjs",
     "test:mdep": "node --experimental-strip-types --test tests/mdep.test.mjs",
-    "test:sprint6": "node --experimental-strip-types --test tests/sprint6.test.mjs"
+    "test:sprint6": "node --experimental-strip-types --test tests/sprint6.test.mjs",
+    "test:sprint7": "node --experimental-strip-types --test tests/sprint7.test.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

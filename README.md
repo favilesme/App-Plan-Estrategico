@@ -2,7 +2,7 @@
 
 Archivos fuente de la Aplicacion de Plan Estrategico creada en Sites.
 
-Aplicación privada de planificación estratégica de Anima Praxis. Este repositorio conserva el código fuente; cada instalación del Site mantiene sus propios usuarios, datos y configuración de entorno. El estado funcional actual incluye el **inicio del Sprint 6**: además de los módulos aprobados hasta la dirección competitiva MDEP, permite formular borradores de objetivos BSC e iniciativas vinculadas. La revisión y aprobación de estos nuevos borradores y la ficha completa de KPIs siguen pendientes de definición metodológica.
+Aplicación privada de planificación estratégica de Anima Praxis. Este repositorio conserva el código fuente; cada instalación del Site mantiene sus propios usuarios, datos y configuración de entorno. El Site publicado está en la versión 28 con objetivos e iniciativas aprobados. La rama local de Sprint 7 añade borradores de ejecución, KPI, presupuesto y CMI; los datos del cliente y la aprobación de Sprint 7 siguen pendientes. Consulte `SPRINT_7_ALCANCE_Y_CONTROLES.md` para el alcance exacto.
 
 ## Estructura
 
@@ -45,12 +45,15 @@ node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1
 node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0004_grey_jean_grey.sql
 node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0005_dark_silvermane.sql
 node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0006_greedy_eternals.sql
+node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0007_unique_blob.sql
+node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0008_round_union_jack.sql
+node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0009_tiny_shocker.sql
 npm run dev
 ```
 
 Abrir la dirección local que muestra Vite y entrar por `/signin-with-chatgpt?return_to=/`. El modo portable simula la identidad `seedy@sites.test` **solo en desarrollo local**. Si se usa otro correo de prueba, ponerlo también en `SITE_OWNER_EMAIL`. No usar información empresarial real en la base de prueba.
 
-`npm run build` verifica que el Worker pueda generarse; `npm run test:foda` y `npm run test:mdep` comprueban las reglas metodológicas. `npm run lint` ejecuta el análisis estático. El archivo `.env.example` enumera los nombres de variables; el ejemplo no carga variables automáticamente. Para desarrollo local, exportar `OPENAI_API_KEY` en el shell si se quiere probar la propuesta IA. Para producción, configurar `SITE_OWNER_EMAIL` y el secreto `OPENAI_API_KEY` en las variables del Site, sin guardar valores en Git.
+`npm run build` verifica que el Worker pueda generarse; `npm run test:foda`, `npm run test:mdep`, `npm run test:sprint6` y `npm run test:sprint7` comprueban las reglas metodológicas. `npm run lint` ejecuta el análisis estático. El archivo `.env.example` enumera los nombres de variables; el ejemplo no carga variables automáticamente. Para desarrollo local, exportar `OPENAI_API_KEY` en el shell si se quiere probar la propuesta IA. Para producción, configurar `SITE_OWNER_EMAIL` y el secreto `OPENAI_API_KEY` en las variables del Site, sin guardar valores en Git.
 
 La generación IA se solicita cruce por cruce y consume el proyecto OpenAI del propietario. Su nota se guarda separada de la decisión final del equipo. Cada cruce requiere una sugerencia IA registrada antes de la calificación final. Si falta la clave o falla el servicio, el cruce queda pendiente hasta restablecerlo.
 

@@ -9,6 +9,7 @@ import { FodaReviewPage } from "@/components/foda-review-page";
 import { StrategicActionsPage } from "@/components/strategic-actions-page";
 import { MdepPage } from "@/components/mdep-page";
 import { ObjectivesPage, InitiativesPage } from "@/components/sprint6-pages";
+import { ExecutionPage, KpisPage } from "@/components/sprint7-pages";
 import { canRead, getActor } from "@/lib/authz";
 import { modules, type ModuleSlug } from "@/lib/modules";
 
@@ -24,6 +25,8 @@ export default async function ModulePage({ params, searchParams }: { params: Pro
   if (slug === "porter") return <MdepPage searchParams={searchParams} />;
   if (slug === "objetivos") return <ObjectivesPage searchParams={searchParams} />;
   if (slug === "iniciativas") return <InitiativesPage searchParams={searchParams} />;
+  if (slug === "ejecucion") return <ExecutionPage searchParams={searchParams} />;
+  if (slug === "kpis") return <KpisPage searchParams={searchParams} />;
   const actor = await getActor();
   if (!actor) redirect(chatGPTSignInPath(`/modulos/${slug}`));
   if (actor.role === "unconfigured" || !canRead(actor.role)) return <AccessNotice configured={actor.role !== "unconfigured"} />;

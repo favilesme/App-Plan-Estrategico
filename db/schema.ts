@@ -491,3 +491,78 @@ export const strategicInitiatives = sqliteTable("strategic_initiatives", {
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 }, (table) => [index("idx_initiatives_objective").on(table.objectiveId)]);
+
+// Sprint 7 adds draft operating records. Source IDs and versions keep the
+// approved Sprint 6 decision immutable while the client completes the plan.
+export const executionPlans = sqliteTable("execution_plans", {
+  id: text("id").primaryKey(),
+  cycleId: text("cycle_id").notNull().references(() => strategyCycles.id),
+  initiativeId: text("initiative_id").notNull().references(() => strategicInitiatives.id),
+  initiativeVersion: integer("initiative_version").notNull(),
+  objectiveId: text("objective_id").notNull().references(() => strategicObjectives.id),
+  objectiveVersion: integer("objective_version").notNull(),
+  responsibleMemberId: text("responsible_member_id").references(() => members.id),
+  startDate: text("start_date"),
+  endDate: text("end_date"),
+  milestonesJson: text("milestones_json").notNull().default("[]"),
+  resources: text("resources").notNull().default(""),
+  risks: text("risks").notNull().default(""),
+  status: text("status").notNull().default("draft"),
+  version: integer("version").notNull().default(1),
+  updatedByUserId: text("updated_by_user_id").notNull(),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [uniqueIndex("ux_execution_initiative").on(table.initiativeId), index("idx_execution_cycle").on(table.cycleId)]);
+
+export const kpiSpecs = sqliteTable("kpi_specs", {
+  id: text("id").primaryKey(),
+  cycleId: text("cycle_id").notNull().references(() => strategyCycles.id),
+  objectiveId: text("objective_id").notNull().references(() => strategicObjectives.id),
+  objectiveVersion: integer("objective_version").notNull(),
+  formula: text("formula").notNull().default(""),
+  denominator: text("denominator").notNull().default(""),
+  requiresDenominator: integer("requires_denominator", { mode: "boolean" }).notNull().default(false),
+  source: text("source").notNull().default(""),
+  baseline: text("baseline").notNull().default(""),
+  target: text("target").notNull().default(""),
+  frequency: text("frequency").notNull().default(""),
+  responsibleMemberId: text("responsible_member_id").references(() => members.id),
+  direction: text("direction").notNull().default(""),
+  tolerance: text("tolerance").notNull().default(""),
+  toleranceRationale: text("tolerance_rationale").notNull().default(""),
+  status: text("status").notNull().default("draft"),
+  version: integer("version").notNull().default(1),
+  updatedByUserId: text("updated_by_user_id").notNull(),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [uniqueIndex("ux_kpi_objective").on(table.objectiveId), index("idx_kpi_cycle").on(table.cycleId)]);
+
+export const budgetEntries = sqliteTable("budget_entries", {
+  id: text("id").primaryKey(),
+  cycleId: text("cycle_id").notNull().references(() => strategyCycles.id),
+  planId: text("plan_id").notNull().references(() => executionPlans.id),
+  periodKey: text("period_key").notNull(),
+  amount: text("amount").notNull().default(""),
+  currency: text("currency").notNull().default(""),
+  sourceNote: text("source_note").notNull().default(""),
+  status: text("status").notNull().default("draft"),
+  version: integer("version").notNull().default(1),
+  updatedByUserId: text("updated_by_user_id").notNull(),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [uniqueIndex("ux_budget_plan_period").on(table.planId, table.periodKey),
+  index("idx_budget_cycle").on(table.cycleId)]);
+
+// The corporate CMI is the full set of objective KPI specifications. Three
+// client-named area CMI rows select subsets without copying KPI values.
+export const areaScorecards = sqliteTable("area_scorecards", {
+  id: text("id").primaryKey(),
+  cycleId: text("cycle_id").notNull().references(() => strategyCycles.id),
+  name: text("name").notNull(),
+  objectiveIdsJson: text("objective_ids_json").notNull().default("[]"),
+  status: text("status").notNull().default("draft"),
+  version: integer("version").notNull().default(1),
+  updatedByUserId: text("updated_by_user_id").notNull(),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+}, (table) => [index("idx_scorecards_cycle").on(table.cycleId)]);
