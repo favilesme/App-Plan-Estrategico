@@ -2,7 +2,7 @@
 
 Archivos fuente de la Aplicacion de Plan Estrategico creada en Sites.
 
-Aplicación privada de planificación estratégica de Anima Praxis. Este repositorio conserva el código fuente; cada instalación del Site mantiene sus propios usuarios, datos y configuración de entorno. El Site publicado está en la versión 28 con objetivos e iniciativas aprobados. La rama local de Sprint 7 añade borradores de ejecución, KPI, presupuesto y CMI; los datos del cliente y la aprobación de Sprint 7 siguen pendientes. Consulte `SPRINT_7_ALCANCE_Y_CONTROLES.md` para el alcance exacto.
+Aplicación privada de planificación estratégica de Anima Praxis. Este repositorio conserva el código fuente; cada instalación del Site mantiene sus propios usuarios, datos y configuración de entorno. El Site publicado contiene objetivos e iniciativas aprobados y permite registrar borradores de ejecución, KPI, presupuesto y CMI. Los datos del cliente y la aprobación de Sprint 7 siguen pendientes. Consulte `SPRINT_7_ALCANCE_Y_CONTROLES.md` para el alcance exacto.
 
 ## Estructura
 

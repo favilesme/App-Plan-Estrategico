@@ -1,8 +1,8 @@
 # Sprint 7 · Plan de ejecución y KPI
 
-**Inicio:** 31 de octubre de 2026. **Fuente de alcance:** `TRASPASO_SPRINT_7_2026-10-31.md` y `../PLAN_SPRINTS_SITES_MULTIUSUARIO_2026-09-29.md`. Este documento registra la primera entrega de código; no certifica el cierre del sprint ni la aprobación de datos del cliente.
+**Inicio:** 31 de octubre de 2026. **Fuente de alcance:** `TRASPASO_SPRINT_7_2026-10-31.md` y `../PLAN_SPRINTS_SITES_MULTIUSUARIO_2026-09-29.md`. Este documento registra la primera entrega publicada; no certifica el cierre del sprint ni la aprobación de datos del cliente.
 
-## Primera entrega local
+## Primera entrega publicada
 
 - Una ficha de ejecución en borrador por iniciativa aprobada, vinculada a la versión de la iniciativa y de su objetivo. Registra responsable activo, inicio, cierre, hitos fechados, recursos y riesgos. La pantalla señala campos pendientes.
 - Una ficha KPI en borrador por objetivo aprobado, vinculada a la versión del objetivo. Conserva el nombre, unidad y propósito del objetivo; registra fórmula, denominador cuando corresponde, fuente, línea base, meta, frecuencia, responsable, sentido y tolerancia propia fundamentada.
@@ -17,11 +17,15 @@
 2. `[FALTA]` Moneda, importes y sustentos del presupuesto aportados por el cliente.
 3. `[FALTA]` Tres áreas elegidas por el cliente y su composición KPI, para completar los cuatro CMI con el corporativo.
 4. `[FALTA]` Regla de revisión y aprobación humana de las fichas del Sprint 7. Hasta definirla, ninguna ficha puede pasar a `approved` ni marcar los módulos al 100 %.
-5. `[FALTA]` Prueba de permisos con varios usuarios reales del Site, de despliegue y migración en D1 publicada. Las migraciones `0008_round_union_jack.sql` y `0009_tiny_shocker.sql` sólo se verificaron localmente y **no** se aplicaron al Site.
+5. `[FALTA]` Prueba de permisos y concurrencia con varios usuarios reales del Site. Las migraciones se aplicaron al publicar; los flujos de escritura aún no tienen prueba funcional multiusuario.
 
 ## Criterios para continuar
 
 - Confirmar con el cliente áreas, moneda, importes y sustentos; completar las fichas sin inferir valores.
 - Definir con Francisco y el equipo autorizado la puerta de revisión de planes, KPI, presupuesto y CMI; exigir que las tolerancias vigentes se aprueben antes de clasificar mediciones.
-- Probar flujo multiusuario, concurrencia y migración en una base de prueba, y luego sincronizar código y Site con autorización explícita de publicación.
+- Probar flujo multiusuario y concurrencia antes de declarar el Sprint 7 completo.
 - Mantener Sprint 8 para mediciones trimestrales y revisión integral anual; Sprint 9 para informe ejecutivo.
+
+## Verificación de la primera publicación
+
+El 31 de octubre de 2026 se publicó la versión 29 del Site con acceso `custom`, sin cambiar la audiencia. El despliegue terminó en `succeeded`; D1 mostró las cuatro tablas nuevas (`execution_plans`, `kpi_specs`, `budget_entries`, `area_scorecards`) y conservó nueve módulos aprobados, cinco objetivos y seis iniciativas. Las rutas publicadas `/modulos/ejecucion` y `/modulos/kpis` cargaron y mostraron sus coberturas pendientes. Ningún registro de cliente se precargó en las tablas nuevas.
