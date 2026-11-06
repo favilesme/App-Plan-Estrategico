@@ -4,10 +4,12 @@ import { saveAreaScorecard, saveBudgetEntry, saveExecutionPlan, saveKpiSpec } fr
 import { chatGPTSignInPath } from "@/app/chatgpt-auth";
 import { AccessNotice } from "@/components/access-notice";
 import { AppShell } from "@/components/app-shell";
+import { Sprint7ReviewPanel } from "@/components/sprint7-review-panel";
 import { canRead, getActor } from "@/lib/authz";
 import { getApprovedStrategy, getInitiatives, getObjectives, type StrategicObjective } from "@/lib/sprint6";
 import { getAreaScorecards, getBudgetEntries, getExecutionPlans, getKpiSpecs,
   type AreaScorecard, type BudgetEntry, type ExecutionPlan, type KpiSpec } from "@/lib/sprint7";
+import { getSprint7ReviewState } from "@/lib/sprint7-review";
 import { areaIssues, BUDGET_PERIODS, budgetIssues, kpiIssues, kpiReadiness, planIssues,
   type Milestone } from "@/lib/sprint7-policy.mts";
 import { getCurrentCycle, getMembers, getModuleProgress, type Member } from "@/lib/workspace";
@@ -15,7 +17,7 @@ import { getCurrentCycle, getMembers, getModuleProgress, type Member } from "@/l
 const card = "rounded-2xl border border-[#E6DFD6] bg-white p-5";
 const input = "mt-1 w-full rounded-lg border border-[#C9C5BF] bg-white px-3 py-2 text-sm text-[#192538]";
 const button = "rounded-lg bg-[#192538] px-4 py-2 text-sm font-semibold text-white hover:bg-[#344052]";
-type Query = Promise<{ error?: string; saved?: string }>;
+type Query = Promise<{ error?: string; saved?: string; voted?: string; reviewed?: string; approved?: string; changes?: string }>;
 
 async function pageData(slug: "ejecucion" | "kpis") {
   const actor = await getActor();
@@ -38,9 +40,14 @@ async function pageData(slug: "ejecucion" | "kpis") {
     objectives.length && initiatives.length && objectives.every((item) => item.status === "approved") &&
     initiatives.every((item) => item.status === "approved"));
   const member = members.find((item) => item.id === actor.memberId && item.status === "active");
-  const canEdit = Boolean(sourcesApproved && member?.is_leader && ["owner", "admin", "leader"].includes(member.role));
+  const reviewState = sourcesApproved && cycle ? await getSprint7ReviewState({ cycle, objectives, initiatives,
+    plans, kpis, budgets, areas, members }) : null;
+  const reviewLocked = reviewState?.approved || reviewState?.review?.status === "approved" &&
+    reviewState?.final?.status !== "changes_requested";
+  const canEdit = Boolean(sourcesApproved && member?.is_leader &&
+    ["owner", "admin", "leader"].includes(member.role) && !reviewLocked);
   return { actor, denied: false as const, cycle, strategy, objectives, initiatives, plans, kpis, budgets, areas, members,
-    sourcesApproved, canEdit };
+    sourcesApproved, canEdit, reviewState };
 }
 
 function periodLabel(key: string) {
@@ -53,11 +60,11 @@ function BudgetPanel({ plan, entries, canEdit }: { plan: ExecutionPlan; entries:
   const currencies = [...new Set(entries.filter((row) => row.currency).map((row) => row.currency))];
   return <details id={`budget-${plan.id}`} className="mt-4 border-t border-[#E6DFD6] pt-4">
     <summary className="cursor-pointer text-sm font-semibold underline">Presupuesto · {complete}/14 períodos completos</summary>
-    <p className="mt-2 text-xs text-[#5A626F]">El año 1 usa 12 meses desde el inicio del ciclo; años 2 y 3 usan un importe anual. Moneda y sustento proceden del cliente. {currencies.length > 1 ? "[FALTA] Unificar moneda antes de agregar importes." : ""}</p>
+    <p className="mt-2 text-xs text-[#5A626F]">El año 1 usa 12 meses desde el inicio del ciclo; años 2 y 3 usan un importe anual. Los importes y sustentos de esta demostración son ficticios. {currencies.length > 1 ? "[FALTA] Unificar moneda antes de agregar importes." : ""}</p>
     <div className="mt-3 space-y-2">{BUDGET_PERIODS.map((key) => { const item = entries.find((row) => row.period_key === key);
       const issues = item ? budgetIssues({ periodKey: key, amount: item.amount, currency: item.currency, sourceNote: item.source_note }) : ["importe", "moneda", "sustento"];
       return <div key={key} className="rounded-lg bg-[#FAF8F4] p-3 text-sm"><p className="font-semibold">{periodLabel(key)} · {item?.amount || "[FALTA]"} {item?.currency || ""}</p>
-        <p className="text-xs text-[#5A626F]">{item?.source_note || "[FALTA] Sustento"} · {issues.length ? `Pendiente: ${issues.join(", ")}` : "Completo para revisión"}</p>
+        <p className="text-xs text-[#5A626F]">{item?.source_note || "[FALTA] Sustento"} · {issues.length ? `Pendiente: ${issues.join(", ")}` : item?.status === "approved" ? "Aprobado para demostración" : "Completo en formato para revisión"}</p>
         {canEdit && <form action={saveBudgetEntry} className="mt-2 grid gap-2 sm:grid-cols-[1fr_110px_2fr_auto]">
           <input type="hidden" name="id" value={item?.id ?? ""}/><input type="hidden" name="version" value={item?.version ?? 0}/>
           <input type="hidden" name="plan_id" value={plan.id}/><input type="hidden" name="period_key" value={key}/>
@@ -97,7 +104,7 @@ function PlanForm({ initiativeId, defaultResponsible, plan, members }: { initiat
       defaultValue={milestones(plan).map((item) => `${item.date} | ${item.name}`).join("\n")} className={input}/></label>
     <label className="text-sm font-medium sm:col-span-2">Recursos necesarios<textarea name="resources" rows={2} defaultValue={plan?.resources ?? ""} maxLength={3000} className={input}/></label>
     <label className="text-sm font-medium sm:col-span-2">Riesgos, condiciones y evidencia pendiente<textarea name="risks" rows={3} defaultValue={plan?.risks ?? ""} maxLength={3000} className={input}/></label>
-    <p className="text-xs text-[#5A626F] sm:col-span-2">Los campos sin sustento pueden guardarse vacíos en borrador. No se habilita ejecución ni aprobación automática.</p>
+    <p className="text-xs text-[#5A626F] sm:col-span-2">Los campos sin sustento pueden guardarse vacíos en borrador. La aprobación de esta demostración exige una decisión humana.</p>
     <button className={`${button} w-fit sm:col-span-2`}>Guardar borrador del plan</button>
   </form>;
 }
@@ -105,16 +112,41 @@ function PlanForm({ initiativeId, defaultResponsible, plan, members }: { initiat
 export async function ExecutionPage({ searchParams }: { searchParams: Query }) {
   const query = await searchParams, data = await pageData("ejecucion");
   if (data.denied) return <AccessNotice configured={data.actor.role !== "unconfigured"}/>;
-  const { initiatives, objectives, plans, budgets, members, sourcesApproved, canEdit } = data;
+  const { initiatives, objectives, plans, budgets, members, sourcesApproved, canEdit, reviewState, actor } = data;
+  const completePlans = plans.filter((plan) => {
+    const initiative = initiatives.find((item) => item.id === plan.initiative_id);
+    const objective = objectives.find((item) => item.id === plan.objective_id);
+    return initiative && objective && plan.initiative_version === initiative.version &&
+      plan.objective_version === objective.version && !planIssues({ startDate: plan.start_date ?? "",
+        endDate: plan.end_date ?? "", milestones: milestones(plan), resources: plan.resources, risks: plan.risks,
+        responsibleMemberId: plan.responsible_member_id ?? "" }).length;
+  }).length;
+  const completeBudgets = plans.filter((plan) => BUDGET_PERIODS.every((key) => {
+    const item = budgets.find((row) => row.plan_id === plan.id && row.period_key === key);
+    return item && !budgetIssues({ periodKey: key, amount: item.amount, currency: item.currency,
+      sourceNote: item.source_note }).length;
+  })).length;
+  const errors: Record<string, string> = { permission: "No tienes permiso para esta acción.",
+    source: "Se requieren objetivos e iniciativas aprobados y vigentes.",
+    stale: "El conjunto cambió. Recarga la página antes de continuar.",
+    responsible: "El responsable debe ser integrante activo de esta organización.",
+    budget: "Revisa período, importe, moneda y sustento del presupuesto.",
+    quorum: "La revisión requiere tres participaciones vigentes, incluido el director.",
+    review_locked: "Esta decisión ya se registró o requiere una nueva versión del conjunto.",
+    invalid: "Revisa el fundamento o los campos de la ficha." };
   return <AppShell active="ejecucion"><main className="mx-auto max-w-6xl space-y-5 px-5 py-8 lg:px-9">
     <Link href="/modulos/iniciativas" className="text-sm font-semibold underline">← Iniciativas aprobadas</Link>
-    <header><p className="text-xs font-semibold uppercase tracking-widest text-[#5A626F]">Sprint 7 · Borradores operativos</p>
-      <h1 className="mt-2 font-serif text-3xl text-[#192538]">Plan de ejecución</h1><p className="mt-2 text-sm text-[#5A626F]">Cada plan nace de una iniciativa aprobada y conserva la versión del objetivo. Registra responsable, hitos, fechas, recursos y riesgos con datos del cliente.</p></header>
-    {query.error && <p role="alert" className="rounded-lg bg-[#FBF0EA] p-3 text-sm text-[#7E3527]">{query.error === "permission" ? "No tienes permiso para editar planes." : query.error === "source" ? "Se requieren objetivos e iniciativas aprobados y vigentes." : query.error === "stale" ? "Esta ficha cambió. Recarga la página antes de guardar." : query.error === "responsible" ? "El responsable debe ser integrante activo de esta organización." : query.error === "budget" ? "Revisa período, importe, moneda y sustento del presupuesto." : "Revisa fechas, hitos y límites de texto."}</p>}
+    <header><p className="text-xs font-semibold uppercase tracking-widest text-[#5A626F]">Sprint 7 · Piloto comercial</p>
+      <h1 className="mt-2 font-serif text-3xl text-[#192538]">Plan de ejecución</h1><p className="mt-2 text-sm text-[#5A626F]">Cada plan nace de una iniciativa aprobada y conserva la versión del objetivo. Los responsables, hitos, fechas, recursos y riesgos de este conjunto son ficticios y se revisan para la demostración.</p></header>
+    {query.error && <p role="alert" className="rounded-lg bg-[#FBF0EA] p-3 text-sm text-[#7E3527]">{errors[query.error] ?? "Revisa fechas, hitos y límites de texto."}</p>}
     {query.saved && <p role="status" className="rounded-lg bg-[#EAF3EC] p-3 text-sm">Borrador guardado con versión y auditoría.</p>}
+    {(query.voted || query.reviewed || query.approved || query.changes) && <p role="status" className="rounded-lg bg-[#EAF3EC] p-3 text-sm">Decisión registrada con identidad, versión y auditoría. Revisa el estado vigente del conjunto.</p>}
     {!sourcesApproved && <section className={card}>[FALTA] Aprobación vigente de objetivos e iniciativas para este ciclo.</section>}
     {sourcesApproved && <section className={card}><h2 className="font-semibold">Cobertura de ejecución · {plans.length}/{initiatives.length}</h2>
-      <p className="mt-2 text-sm text-[#5A626F]">{initiatives.length - plans.length} iniciativas sin ficha. Un borrador con campos pendientes no cumple aún el criterio de salida. El presupuesto exige 14 períodos por plan.</p></section>}
+      <p className="mt-2 text-sm text-[#5A626F]">{completePlans}/{initiatives.length} fichas completas en formato · {completeBudgets}/{initiatives.length} presupuestos con 14 períodos completos. {reviewState?.approved ? "Conjunto ficticio aprobado para demostración comercial." : `Participación del equipo: ${reviewState?.votes.count ?? 0}/3; revisión del consultor y decisión final según el panel siguiente.`}</p>
+      <p className="mt-2 text-xs text-[#5A626F]">Las cifras y fechas son ficticias y definitivas para el piloto comercial. La cobertura y el formato no equivalen a una aprobación humana.</p></section>}
+    {sourcesApproved && reviewState && <Sprint7ReviewPanel state={reviewState} members={members}
+      actorRole={actor.role} actorMemberId={actor.memberId}/>}
     {sourcesApproved && initiatives.map((initiative) => { const objective = objectives.find((item) => item.id === initiative.objective_id);
       const plan = plans.find((item) => item.initiative_id === initiative.id);
       const items = milestones(plan);
@@ -126,14 +158,14 @@ export async function ExecutionPage({ searchParams }: { searchParams: Query }) {
       if (!sourceCurrent) issues.unshift("versión de origen");
       return <section key={initiative.id} id={plan ? `plan-${plan.id}` : undefined} className={card}>
         <div className="flex flex-wrap items-start justify-between gap-2"><h2 className="text-lg font-semibold">{initiative.statement}</h2>
-          <span className="text-xs font-semibold text-[#5A626F]">{plan ? `Borrador v${plan.version}` : "[FALTA] Plan"}</span></div>
+          <span className="text-xs font-semibold text-[#5A626F]">{plan ? `${plan.status === "approved" ? "Aprobado para demo" : "Borrador"} v${plan.version}` : "[FALTA] Plan"}</span></div>
         <p className="mt-2 text-sm"><strong>Objetivo aprobado:</strong> {objective?.statement ?? "[FALTA]"}</p>
         <p className="mt-1 text-xs text-[#5A626F]">Origen: iniciativa v{initiative.version} · objetivo v{objective?.version ?? "?"}. Responsable de la iniciativa: {name(initiative.responsible_member_id, members)}.</p>
         {plan && <div className="mt-3 space-y-1 text-sm"><p><strong>Responsable del plan:</strong> {name(plan.responsible_member_id, members)}</p>
           <p><strong>Fechas:</strong> {plan.start_date || "[FALTA]"} → {plan.end_date || "[FALTA]"}</p>
           <p><strong>Hitos:</strong> {items.length ? items.map((item) => `${item.date}: ${item.name}`).join(" · ") : "[FALTA]"}</p>
           <p><strong>Recursos:</strong> {plan.resources || "[FALTA]"}</p><p><strong>Riesgos y condiciones:</strong> {plan.risks || "[FALTA]"}</p>
-          <p className="text-xs text-[#5A626F]">{issues.length ? `Pendiente: ${issues.join(", ")}.` : "Ficha completa para revisión humana; sin aprobación."} Última edición: {plan.updated_at}.</p></div>}
+          <p className="text-xs text-[#5A626F]">{issues.length ? `Pendiente: ${issues.join(", ")}.` : plan.status === "approved" ? "Ficha ficticia aprobada para demostración comercial." : "Ficha completa en formato para revisión humana."} Última edición: {plan.updated_at}.</p></div>}
         {canEdit && sourceCurrent && <details className="mt-3"><summary className="cursor-pointer text-sm font-semibold underline">{plan ? "Editar borrador" : "Crear ficha"}</summary>
           <PlanForm initiativeId={initiative.id} defaultResponsible={initiative.responsible_member_id} plan={plan} members={members}/></details>}
         {plan && <BudgetPanel plan={plan} entries={budgets.filter((item) => item.plan_id === plan.id)} canEdit={canEdit && sourceCurrent}/>}
@@ -178,7 +210,7 @@ function AreaForm({ area, objectives }: { area?: AreaScorecard; objectives: Stra
   const selected = areaObjectiveIds(area);
   return <form action={saveAreaScorecard} className="mt-3 space-y-3 border-t border-[#E6DFD6] pt-3">
     <input type="hidden" name="id" value={area?.id ?? ""}/><input type="hidden" name="version" value={area?.version ?? 0}/>
-    <label className="block text-sm font-medium">Nombre del área elegido por el cliente<input name="name" defaultValue={area?.name ?? ""} minLength={3} maxLength={120} required className={input}/></label>
+    <label className="block text-sm font-medium">Nombre del área de demostración<input name="name" defaultValue={area?.name ?? ""} minLength={3} maxLength={120} required className={input}/></label>
     <fieldset><legend className="text-sm font-medium">KPI de objetivos asignados a esta área</legend>
       <div className="mt-2 grid gap-2 sm:grid-cols-2">{objectives.map((objective) =>
         <label key={objective.id} className="flex items-start gap-2 rounded-lg bg-[#FAF8F4] p-2 text-sm">
@@ -195,20 +227,21 @@ function ScorecardsPanel({ areas, objectives, kpis, canEdit }: { areas: AreaScor
     target: spec.target, frequency: spec.frequency, responsibleMemberId: spec.responsible_member_id ?? "",
     direction: spec.direction, tolerance: spec.tolerance, toleranceRationale: spec.tolerance_rationale }) === "lista_para_revision").length;
   return <section className={card}><h2 className="text-lg font-semibold">Cuadros de Mando Integral · {1 + areas.length}/4</h2>
-    <p className="mt-2 text-sm text-[#5A626F]">CMI corporativo y tres áreas que debe elegir el cliente. La asignación de KPI no crea metas ni aprueba tolerancias.</p>
+    <p className="mt-2 text-sm text-[#5A626F]">CMI corporativo y tres áreas ficticias para esta demostración. La asignación de KPI no crea metas ni aprueba tolerancias automáticamente.</p>
     <div className="mt-3 rounded-lg bg-[#FAF8F4] p-3 text-sm"><strong>Corporativo:</strong> {kpis.length}/{objectives.length} fichas KPI creadas · {ready} completas para revisión. Incluye todos los objetivos aprobados.</div>
     {areas.map((area) => { const ids = areaObjectiveIds(area);
       const issues = areaIssues({ name: area.name, objectiveIds: ids }, objectives.map((item) => item.id),
         areas.filter((item) => item.id !== area.id).map((item) => item.name));
       const missingSpecs = ids.filter((id) => !kpis.some((item) => item.objective_id === id));
       return <div key={area.id} id={`cmi-${area.id}`} className="mt-3 rounded-lg border border-[#E6DFD6] p-3 text-sm">
-        <strong>{area.name}</strong> · borrador v{area.version} · {ids.length} KPI asignados
+        <strong>{area.name}</strong> · {area.status === "approved" ? "aprobado para demo" : "borrador"} v{area.version} · {ids.length} KPI asignados
         <p className="mt-1 text-xs text-[#5A626F]">{issues.length || missingSpecs.length ?
           `Pendiente: ${[...issues, ...(missingSpecs.length ? ["fichas KPI de objetivos asignados"] : [])].join(", ")}.` :
-          "Composición completa para revisión humana; sin aprobación."}</p>
+          area.status === "approved" ? "Composición ficticia aprobada para demostración." :
+          "Composición completa para revisión humana."}</p>
         {canEdit && <details className="mt-2"><summary className="cursor-pointer font-semibold underline">Editar área y KPI</summary><AreaForm area={area} objectives={objectives}/></details>}
       </div>; })}
-    {canEdit && areas.length < 3 && <details className="mt-3"><summary className="cursor-pointer text-sm font-semibold underline">Añadir área elegida por el cliente</summary><AreaForm objectives={objectives}/></details>}
+    {canEdit && areas.length < 3 && <details className="mt-3"><summary className="cursor-pointer text-sm font-semibold underline">Añadir área de demostración</summary><AreaForm objectives={objectives}/></details>}
     {areas.length < 3 && <p className="mt-3 text-sm text-[#7E3527]">[FALTA] {3 - areas.length} área(s) para completar los cuatro CMI.</p>}
   </section>;
 }
@@ -216,15 +249,15 @@ function ScorecardsPanel({ areas, objectives, kpis, canEdit }: { areas: AreaScor
 export async function KpisPage({ searchParams }: { searchParams: Query }) {
   const query = await searchParams, data = await pageData("kpis");
   if (data.denied) return <AccessNotice configured={data.actor.role !== "unconfigured"}/>;
-  const { objectives, kpis, areas, members, sourcesApproved, canEdit } = data;
+  const { objectives, kpis, areas, members, sourcesApproved, canEdit, reviewState } = data;
   return <AppShell active="kpis"><main className="mx-auto max-w-6xl space-y-5 px-5 py-8 lg:px-9">
     <Link href="/modulos/ejecucion" className="text-sm font-semibold underline">← Plan de ejecución</Link>
     <header><p className="text-xs font-semibold uppercase tracking-widest text-[#5A626F]">Sprint 7 · Fichas operativas</p>
       <h1 className="mt-2 font-serif text-3xl text-[#192538]">KPIs por objetivo</h1><p className="mt-2 text-sm text-[#5A626F]">La identidad y unidad de cada indicador proceden del objetivo aprobado. Completa fórmula, fuente, base, meta, frecuencia, responsable, sentido y tolerancia propia.</p></header>
-    {query.error && <p role="alert" className="rounded-lg bg-[#FBF0EA] p-3 text-sm text-[#7E3527]">{query.error === "permission" ? "No tienes permiso para editar KPI." : query.error === "source" ? "Se requieren objetivos e iniciativas aprobados y vigentes." : query.error === "stale" ? "Esta ficha cambió. Recarga antes de guardar." : query.error === "responsible" ? "El responsable debe ser integrante activo." : query.error === "area" ? "Revisa el nombre del área y sus KPI; no repitas un área existente." : query.error === "areas" ? "Ya existen tres CMI de área." : "Revisa el formato de números, rango y tolerancia."}</p>}
+    {query.error && <p role="alert" className="rounded-lg bg-[#FBF0EA] p-3 text-sm text-[#7E3527]">{query.error === "permission" ? "No tienes permiso para editar KPI." : query.error === "source" ? "Se requieren objetivos e iniciativas aprobados y vigentes." : query.error === "stale" ? "Esta ficha cambió. Recarga antes de guardar." : query.error === "responsible" ? "El responsable debe ser integrante activo." : query.error === "review_locked" ? "La revisión favorable o decisión final bloquea la edición de estas versiones." : query.error === "area" ? "Revisa el nombre del área y sus KPI; no repitas un área existente." : query.error === "areas" ? "Ya existen tres CMI de área." : "Revisa el formato de números, rango y tolerancia."}</p>}
     {query.saved && <p role="status" className="rounded-lg bg-[#EAF3EC] p-3 text-sm">Ficha KPI guardada en borrador con versión y auditoría.</p>}
     {!sourcesApproved && <section className={card}>[FALTA] Aprobación vigente de objetivos e iniciativas para este ciclo.</section>}
-    {sourcesApproved && <section className={card}><h2 className="font-semibold">Cobertura KPI · {kpis.length}/{objectives.length}</h2><p className="mt-2 text-sm text-[#5A626F]">Cada objetivo requiere una ficha. Una ficha completa queda lista para revisión humana; todavía no clasifica mediciones.</p></section>}
+    {sourcesApproved && <section className={card}><h2 className="font-semibold">Cobertura KPI · {kpis.length}/{objectives.length}</h2><p className="mt-2 text-sm text-[#5A626F]">{reviewState?.approved ? "Conjunto ficticio aprobado para demostración comercial." : "Las fichas completas están listas para la revisión del piloto comercial."} Los valores no clasifican mediciones reales. <Link href="/modulos/ejecucion#revision-sprint7" className="font-semibold underline">Ver participación y aprobación del Sprint 7 →</Link></p></section>}
     {sourcesApproved && <ScorecardsPanel areas={areas} objectives={objectives} kpis={kpis} canEdit={canEdit}/>}
     {sourcesApproved && objectives.map((objective) => { const spec = kpis.find((item) => item.objective_id === objective.id);
       const sourceCurrent = !spec || spec.objective_version === objective.version;
@@ -238,7 +271,7 @@ export async function KpisPage({ searchParams }: { searchParams: Query }) {
         target: spec.target, frequency: spec.frequency, responsibleMemberId: spec.responsible_member_id ?? "",
         direction: spec.direction, tolerance: spec.tolerance, toleranceRationale: spec.tolerance_rationale }) : "pendiente";
       return <section key={objective.id} id={spec ? `kpi-${spec.id}` : undefined} className={card}>
-        <div className="flex flex-wrap justify-between gap-2"><h2 className="text-lg font-semibold">{objective.kpi_name} · {objective.kpi_unit}</h2><span className="text-xs font-semibold text-[#5A626F]">{spec ? `Borrador v${spec.version}` : "[FALTA] Ficha"}</span></div>
+        <div className="flex flex-wrap justify-between gap-2"><h2 className="text-lg font-semibold">{objective.kpi_name} · {objective.kpi_unit}</h2><span className="text-xs font-semibold text-[#5A626F]">{spec ? `${spec.status === "approved" ? "Aprobado para demo" : "Borrador"} v${spec.version}` : "[FALTA] Ficha"}</span></div>
         <p className="mt-2 text-sm"><strong>Objetivo:</strong> {objective.statement}</p><p className="mt-1 text-sm"><strong>Propósito aprobado:</strong> {objective.kpi_definition}</p>
         <p className="mt-1 text-xs text-[#5A626F]">Origen: objetivo aprobado v{objective.version}. Estado operativo: {readiness.replaceAll("_", " ")}.</p>
         {spec && <div className="mt-3 space-y-1 text-sm"><p><strong>Fórmula:</strong> {spec.formula || "[FALTA]"}</p>
@@ -247,7 +280,7 @@ export async function KpisPage({ searchParams }: { searchParams: Query }) {
           <p><strong>Frecuencia:</strong> {spec.frequency || "[FALTA]"} · <strong>Responsable:</strong> {name(spec.responsible_member_id, members)}</p>
           <p><strong>Sentido:</strong> {spec.direction || "[FALTA]"} · <strong>Límite:</strong> {spec.tolerance || "[FALTA]"}</p>
           <p><strong>Fundamento del límite:</strong> {spec.tolerance_rationale || "[FALTA]"}</p>
-          <p className="text-xs text-[#5A626F]">{issues.length ? `Pendiente: ${issues.join(", ")}.` : "Ficha completa para revisión humana; tolerancia no aprobada."} Última edición: {spec.updated_at}.</p></div>}
+          <p className="text-xs text-[#5A626F]">{issues.length ? `Pendiente: ${issues.join(", ")}.` : spec.status === "approved" ? "Ficha ficticia y tolerancia aprobadas para demostración comercial." : "Ficha completa en formato; tolerancia pendiente de revisión humana."} Última edición: {spec.updated_at}.</p></div>}
         {canEdit && sourceCurrent && <details className="mt-3"><summary className="cursor-pointer text-sm font-semibold underline">{spec ? "Editar borrador" : "Crear ficha"}</summary><KpiForm objectiveId={objective.id} spec={spec} members={members}/></details>}
       </section>; })}
   </main></AppShell>;

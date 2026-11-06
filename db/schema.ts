@@ -66,7 +66,13 @@ export const approvals = sqliteTable("approvals", {
   sourceIdsJson: text("source_ids_json").notNull().default("[]"),
   methodologyVersion: text("methodology_version").notNull(),
   createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
-}, (table) => [index("idx_approvals_subject").on(table.cycleId, table.gateKey, table.subjectId)]);
+}, (table) => [
+  index("idx_approvals_subject").on(table.cycleId, table.gateKey, table.subjectId),
+  uniqueIndex("ux_sprint7_vote_once").on(table.cycleId, table.gateKey, table.subjectId, table.reviewerUserId)
+    .where(sql`gate_key = 'sprint7.demo.vote'`),
+  uniqueIndex("ux_sprint7_decision_once").on(table.cycleId, table.gateKey, table.subjectId)
+    .where(sql`gate_key IN ('sprint7.demo.review', 'sprint7.demo.final')`),
+]);
 
 export const evidenceFiles = sqliteTable("evidence_files", {
   id: text("id").primaryKey(),

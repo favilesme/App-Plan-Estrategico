@@ -34,6 +34,10 @@ async function context(path: string) {
       .bind(cycle.id).first<{ status: string }>(),
   ]);
   if (objectivesProgress?.status !== "approved" || initiativesProgress?.status !== "approved") fail(path, "source");
+  const reviewProgress = await db.prepare("SELECT status, percent FROM module_progress WHERE cycle_id = ? AND module_slug IN ('ejecucion', 'kpis')")
+    .bind(cycle.id).all<{ status: string; percent: number }>();
+  if ((reviewProgress.results ?? []).some((item) => item.status === "approved" || item.percent >= 90))
+    fail(path, "review_locked");
   return { actor, db, cycle, strategy };
 }
 

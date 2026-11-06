@@ -1,0 +1,2 @@
+CREATE UNIQUE INDEX `ux_sprint7_vote_once` ON `approvals` (`cycle_id`,`gate_key`,`subject_id`,`reviewer_user_id`) WHERE gate_key = 'sprint7.demo.vote';--> statement-breakpoint
+CREATE UNIQUE INDEX `ux_sprint7_decision_once` ON `approvals` (`cycle_id`,`gate_key`,`subject_id`) WHERE gate_key IN ('sprint7.demo.review', 'sprint7.demo.final');
