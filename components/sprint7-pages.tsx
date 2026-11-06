@@ -273,6 +273,7 @@ export async function KpisPage({ searchParams }: { searchParams: Query }) {
       return <section key={objective.id} id={spec ? `kpi-${spec.id}` : undefined} className={card}>
         <div className="flex flex-wrap justify-between gap-2"><h2 className="text-lg font-semibold">{objective.kpi_name} · {objective.kpi_unit}</h2><span className="text-xs font-semibold text-[#5A626F]">{spec ? `${spec.status === "approved" ? "Aprobado para demo" : "Borrador"} v${spec.version}` : "[FALTA] Ficha"}</span></div>
         <p className="mt-2 text-sm"><strong>Objetivo:</strong> {objective.statement}</p><p className="mt-1 text-sm"><strong>Propósito aprobado:</strong> {objective.kpi_definition}</p>
+        {objective.kpi_definition.includes("[FALTA]") && <p className="mt-1 text-xs text-[#5A626F]">La nota [FALTA] pertenece al texto histórico del objetivo aprobado. La ficha ficticia de este piloto contiene sus valores operativos para revisión.</p>}
         <p className="mt-1 text-xs text-[#5A626F]">Origen: objetivo aprobado v{objective.version}. Estado operativo: {readiness.replaceAll("_", " ")}.</p>
         {spec && <div className="mt-3 space-y-1 text-sm"><p><strong>Fórmula:</strong> {spec.formula || "[FALTA]"}</p>
           <p><strong>Denominador:</strong> {spec.requires_denominator ? spec.denominator || "[FALTA]" : "No requerido según la ficha"}</p>

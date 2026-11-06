@@ -4,9 +4,9 @@
 
 ## Actualización del piloto comercial · 5 de noviembre de 2026
 
-Francisco decidió conservar los datos sintéticos como **conjunto definitivo de demostración comercial**. La aprobación del Sprint 7 se limita a la coherencia de ese conjunto y no equivale a evidencia o compromiso de un cliente real. En D1 hay seis planes, cinco fichas KPI, 84 entradas de presupuesto y tres CMI de área todavía en `draft`. Los 18 meses de presupuesto anteriores al inicio de los planes se corrigieron a cero con origen ficticio visible. Los demás datos no se sustituirán en este piloto.
+Francisco decidió conservar los datos sintéticos como **conjunto definitivo de demostración comercial**. La aprobación del Sprint 7 se limita a la coherencia de ese conjunto y no equivale a evidencia o compromiso de un cliente real. En D1 hay seis planes, cinco fichas KPI, 84 entradas de presupuesto y tres CMI de área todavía en `draft`. Los 18 meses de presupuesto anteriores al inicio de los planes se corrigieron a cero con origen ficticio visible. También se revisaron recursos y riesgos de los seis planes, y fundamentos de tolerancia de los cinco KPI, para eliminar referencias a una futura sustitución con datos de cliente. Los datos no se sustituirán en este piloto.
 
-El código incorpora una puerta de revisión para la versión exacta del conjunto: tres participaciones de líderes activos, incluido el director; revisión del consultor; decisión final del director. Cada paso exige fundamento, registra identidad y auditoría, y las modificaciones invalidan participaciones previas. La aprobación final cambia las fichas a `approved` y los módulos Ejecución y KPI a 100 %, únicamente para demostración. **Al corte de esta actualización, la publicación y las decisiones humanas siguen pendientes.**
+La versión 31 publicada incorpora una puerta de revisión para la versión exacta del conjunto: tres participaciones de líderes activos, incluido el director; revisión del consultor; decisión final del director. Cada paso exige fundamento, registra identidad y auditoría, y las modificaciones invalidan participaciones previas. La aprobación final cambia las fichas a `approved` y los módulos Ejecución y KPI a 100 %, únicamente para demostración. La versión 31 se desplegó con estado `succeeded` y la pantalla de ejecución mostró 6/6 fichas, 6/6 presupuestos completos y la puerta de confirmación sin bloqueos. **Las decisiones humanas siguen pendientes.**
 
 ## Primera entrega publicada
 
@@ -20,13 +20,13 @@ El código incorpora una puerta de revisión para la versión exacta del conjunt
 ## Pendientes de la primera entrega publicada, antes de la decisión de usar datos ficticios definitivos
 
 1. Los datos de cliente, la moneda, los importes y tres áreas de cliente quedaron fuera del alcance del piloto comercial por decisión posterior. Se usan datos ficticios etiquetados; el 5 % anual de la dirección competitiva no se precargó como meta KPI.
-2. La regla de revisión humana ya está implementada en el código, pero sigue pendiente de publicación y prueba funcional con los perfiles del Site.
+2. La regla de revisión humana ya está publicada y su visibilidad se verificó con el perfil del director. Sigue pendiente la prueba funcional del nuevo flujo con los demás perfiles del Site.
 3. `[FALTA]` Tres participaciones humanas, revisión del consultor y decisión del director para las versiones vigentes del conjunto.
 4. `[FALTA]` Prueba de permisos y concurrencia con varios usuarios reales del Site.
 
 ## Criterios para continuar
 
-- Publicar y comprobar la puerta de revisión sobre los datos ficticios definitivos; no registrar decisiones en nombre de otras personas.
+- Comprobar la puerta de revisión con los perfiles autorizados sobre los datos ficticios definitivos; no registrar decisiones en nombre de otras personas.
 - Exigir la aprobación de las tolerancias de demostración antes de mostrar el conjunto como aprobado. Las mediciones reales quedan fuera de este piloto.
 - Probar flujo multiusuario y concurrencia antes de declarar el Sprint 7 completo.
 - Mantener Sprint 8 para mediciones trimestrales y revisión integral anual; Sprint 9 para informe ejecutivo.
