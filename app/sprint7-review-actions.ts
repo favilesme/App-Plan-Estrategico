@@ -7,6 +7,7 @@ import { getActor } from "@/lib/authz";
 import { reviewSourceIds } from "@/lib/sprint6-review-policy.mts";
 import { getInitiatives, getObjectives, getApprovedStrategy } from "@/lib/sprint6";
 import { getAreaScorecards, getBudgetEntries, getExecutionPlans, getKpiSpecs } from "@/lib/sprint7";
+import { finalApprovalInsert } from "@/lib/sprint7-final-guard.mts";
 import { getSprint7ReviewState, sprint7Gate } from "@/lib/sprint7-review";
 import { getCurrentCycle, getMembers } from "@/lib/workspace";
 
@@ -86,13 +87,6 @@ export async function reviewSprint7(form: FormData) {
   refresh(); redirect(`${path}?reviewed=1#revision-sprint7`);
 }
 
-function guard(table: string, expression: string, expected: string[], status: string, cycleId: string) {
-  const marks = expected.map(() => "?").join(", ");
-  return { sql: `(SELECT COUNT(*) FROM ${table} WHERE cycle_id = ?) = ? AND
-    (SELECT COUNT(*) FROM ${table} WHERE cycle_id = ? AND status = ? AND ${expression} IN (${marks})) = ?`,
-    values: [cycleId, expected.length, cycleId, status, ...expected, expected.length] };
-}
-
 export async function decideSprint7(form: FormData) {
   const ctx = await context(), { actor, member, db, cycle, state } = ctx;
   if (field(form, "expected_subject") !== state.subject) fail("stale");
@@ -119,27 +113,11 @@ export async function decideSprint7(form: FormData) {
     refresh(); redirect(`${path}?changes=1#revision-sprint7`);
   }
 
-  const specs = [
-    guard("strategic_objectives", "'o:' || id || ':v' || version", state.tokens.filter((token) => token.startsWith("o:")), "approved", cycle.id),
-    guard("strategic_initiatives", "'i:' || id || ':v' || version || ':o:' || objective_id || ':v' || objective_version",
-      state.tokens.filter((token) => token.startsWith("i:")), "approved", cycle.id),
-    guard("execution_plans", "'p:' || id || ':v' || version || ':i:' || initiative_id || ':v' || initiative_version",
-      state.tokens.filter((token) => token.startsWith("p:")), "draft", cycle.id),
-    guard("kpi_specs", "'k:' || id || ':v' || version || ':o:' || objective_id || ':v' || objective_version",
-      state.tokens.filter((token) => token.startsWith("k:")), "draft", cycle.id),
-    guard("budget_entries", "'b:' || id || ':v' || version || ':p:' || plan_id || ':' || period_key",
-      state.tokens.filter((token) => token.startsWith("b:")), "draft", cycle.id),
-    guard("area_scorecards", "'a:' || id || ':v' || version",
-      state.tokens.filter((token) => token.startsWith("a:")), "draft", cycle.id),
-  ];
-  const condition = specs.map((item) => `(${item.sql})`).join(" AND ");
-  const guardValues = specs.flatMap((item) => item.values);
+  const insert = finalApprovalInsert({ id, cycleId: cycle.id, subject: state.subject,
+    reviewerUserId: actor.user.userId, rationale, sourceIdsJson: sources,
+    methodologyVersion: cycle.methodology_version, tokens: state.tokens });
   const statements = [
-    db.prepare(`INSERT OR IGNORE INTO approvals (id, cycle_id, gate_key, subject_id, status, reviewer_user_id, rationale, source_ids_json, methodology_version)
-      SELECT ?, ?, ?, ?, 'approved', ?, ?, ?, ? WHERE ${condition}
-      AND NOT EXISTS (SELECT 1 FROM approvals WHERE cycle_id = ? AND gate_key = ? AND subject_id = ?)`)
-      .bind(id, cycle.id, sprint7Gate("final"), state.subject, actor.user.userId, rationale,
-        sources, cycle.methodology_version, ...guardValues, cycle.id, sprint7Gate("final"), state.subject),
+    db.prepare(insert.sql).bind(...insert.values),
     ...(["execution_plans", "kpi_specs", "budget_entries", "area_scorecards"] as const).map((table) =>
       db.prepare(`UPDATE ${table} SET status = 'approved', updated_at = CURRENT_TIMESTAMP
         WHERE cycle_id = ? AND status = 'draft' AND EXISTS (SELECT 1 FROM approvals WHERE id = ? AND status = 'approved')`)
@@ -159,7 +137,12 @@ export async function decideSprint7(form: FormData) {
           "Conjunto ficticio aprobado para demostración comercial; no representa datos de un cliente real.",
           actor.user.userId, actor.user.userId, id)),
   ];
-  const result = await db.batch(statements);
+  let result: D1Result[];
+  try { result = await db.batch(statements); }
+  catch {
+    console.error("sprint7.final.db_batch_failed", { cycleId: cycle.id, subject: state.subject });
+    fail("final_unavailable");
+  }
   if (result[0].meta.changes !== 1 || result[1].meta.changes !== ctx.plans.length ||
     result[2].meta.changes !== ctx.kpis.length || result[3].meta.changes !== ctx.budgets.length ||
     result[4].meta.changes !== ctx.areas.length) fail("stale");

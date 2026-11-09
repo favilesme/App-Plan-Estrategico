@@ -133,7 +133,8 @@ export async function ExecutionPage({ searchParams }: { searchParams: Query }) {
     budget: "Revisa período, importe, moneda y sustento del presupuesto.",
     quorum: "La revisión requiere tres participaciones vigentes, incluido el director.",
     review_locked: "Esta decisión ya se registró o requiere una nueva versión del conjunto.",
-    invalid: "Revisa el fundamento o los campos de la ficha." };
+    invalid: "Revisa el fundamento o los campos de la ficha.",
+    final_unavailable: "No se pudo registrar la decisión final. Recarga la página, comprueba el estado del conjunto y vuelve a intentarlo." };
   return <AppShell active="ejecucion"><main className="mx-auto max-w-6xl space-y-5 px-5 py-8 lg:px-9">
     <Link href="/modulos/iniciativas" className="text-sm font-semibold underline">← Iniciativas aprobadas</Link>
     <header><p className="text-xs font-semibold uppercase tracking-widest text-[#5A626F]">Sprint 7 · Piloto comercial</p>
